@@ -93,6 +93,130 @@ public static class ExpenseSplitCalculator
         return result;
     }
 
+    public static IReadOnlyList<(Guid UserId, decimal DishShareVnd)> AllocateSharedItemLineTotal(
+        decimal lineTotal,
+        IReadOnlyList<(Guid UserId, DateTime ClaimedAtUtc)> claimers)
+    {
+        ArgumentNullException.ThrowIfNull(claimers);
+        ValidateNonNegativeWholeVnd(lineTotal, nameof(lineTotal), "Thành tiền món ăn phải là số nguyên không âm (VNĐ).");
+
+        if (claimers.Count == 0)
+        {
+            throw new InvalidOperationException("Món ăn phải có ít nhất một thành viên nhận để chia tiền.");
+        }
+
+        var ordered = claimers
+            .OrderBy(c => c.ClaimedAtUtc)
+            .ThenBy(c => c.UserId)
+            .ToList();
+
+        if (lineTotal == 0m)
+        {
+            return ordered.Select(c => (c.UserId, 0m)).ToList();
+        }
+
+        var baseShare = decimal.Floor(lineTotal / ordered.Count);
+        var remainder = (int)(lineTotal - (baseShare * ordered.Count));
+
+        return ordered
+            .Select((c, idx) => (c.UserId, baseShare + (idx < remainder ? 1m : 0m)))
+            .ToList();
+    }
+
+    public static ItemizedAllocationResult CalculateItemizedProRataAllocation(
+        decimal subtotalAmount,
+        decimal totalAmount,
+        Guid paidByUserId,
+        IReadOnlyList<(Guid ItemId, decimal LineTotal, IReadOnlyList<(Guid UserId, DateTime ClaimedAtUtc)> Claims)> items,
+        bool allowUnclaimedFallbackToPayer)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        ValidatePositiveWholeVnd(subtotalAmount, nameof(subtotalAmount), "Tạm tính hóa đơn phải là số nguyên dương (VNĐ).");
+        ValidatePositiveWholeVnd(totalAmount, nameof(totalAmount), "Tổng thanh toán hóa đơn phải là số nguyên dương (VNĐ).");
+
+        if (items.Count == 0)
+        {
+            throw new InvalidOperationException("Hóa đơn tách món phải có ít nhất một dòng món ăn.");
+        }
+
+        var itemsSum = items.Sum(i => i.LineTotal);
+        if (itemsSum != subtotalAmount)
+        {
+            throw new InvalidOperationException(
+                $"Tổng tiền các món ({itemsSum:N0}đ) không khớp với Tạm tính hóa đơn ({subtotalAmount:N0}đ).");
+        }
+
+        var perItemShares = new Dictionary<Guid, IReadOnlyList<(Guid UserId, decimal DishShareVnd)>>(items.Count);
+        var claimedByUser = new Dictionary<Guid, decimal>();
+        var unclaimedFallbackByUser = new Dictionary<Guid, decimal>();
+
+        foreach (var item in items)
+        {
+            ValidateNonNegativeWholeVnd(item.LineTotal, nameof(items), "Thành tiền từng món phải là số nguyên không âm (VNĐ).");
+
+            if (item.Claims.Count == 0)
+            {
+                if (!allowUnclaimedFallbackToPayer)
+                {
+                    throw new InvalidOperationException(
+                        "Tất cả các món trên hóa đơn phải có ít nhất 1 thành viên nhận trước khi chốt khóa.");
+                }
+
+                perItemShares[item.ItemId] = [];
+                unclaimedFallbackByUser[paidByUserId] =
+                    unclaimedFallbackByUser.GetValueOrDefault(paidByUserId, 0m) + item.LineTotal;
+                continue;
+            }
+
+            var shares = AllocateSharedItemLineTotal(item.LineTotal, item.Claims);
+            perItemShares[item.ItemId] = shares;
+
+            foreach (var (userId, dishShare) in shares)
+            {
+                claimedByUser[userId] = claimedByUser.GetValueOrDefault(userId, 0m) + dishShare;
+            }
+        }
+
+        var allUsers = claimedByUser.Keys
+            .Union(unclaimedFallbackByUser.Keys)
+            .Distinct()
+            .ToList();
+
+        var effectiveSubtotals = new Dictionary<Guid, decimal>();
+        foreach (var userId in allUsers)
+        {
+            var effective = claimedByUser.GetValueOrDefault(userId, 0m)
+                            + unclaimedFallbackByUser.GetValueOrDefault(userId, 0m);
+            if (effective > 0m)
+            {
+                effectiveSubtotals[userId] = effective;
+            }
+        }
+
+        var reconciledByUser = AllocateByWeights(totalAmount, paidByUserId, effectiveSubtotals);
+
+        var reconciledSplits = reconciledByUser
+            .OrderByDescending(kv => kv.Value)
+            .ThenBy(kv => kv.Key)
+            .Select(kv =>
+            {
+                var ratio = decimal.Round(effectiveSubtotals[kv.Key] * 100m / subtotalAmount, 4, MidpointRounding.AwayFromZero);
+                return new ComputedSplitShare(kv.Key, ratio, kv.Value);
+            })
+            .ToList();
+
+        if (reconciledSplits.Sum(s => s.OwedAmount) != totalAmount)
+        {
+            throw new InvalidOperationException("Tổng phần chia sau phân bổ VAT/giảm giá không khớp tổng hóa đơn.");
+        }
+
+        return new ItemizedAllocationResult(
+            perItemShares,
+            claimedByUser,
+            unclaimedFallbackByUser,
+            reconciledSplits);
+    }
+
     private static IReadOnlyList<ComputedSplitShare> CalculateEqualSplits(
         decimal totalAmount,
         Guid paidByUserId,

@@ -33,4 +33,38 @@ public interface IExpenseService
         Guid expenseId,
         Guid actorUserId,
         CancellationToken ct = default);
+
+    Task<ReceiptDraftDto> GetReceiptDraftAsync(
+        Guid expenseId,
+        Guid viewerUserId,
+        bool isAdmin = false,
+        CancellationToken ct = default);
+
+    Task<ReceiptDraftDto> UpdateReceiptDraftAsync(
+        Guid actorUserId,
+        UpdateReceiptDraftRequest request,
+        CancellationToken ct = default);
+
+    Task<ClaimingBoardDto> ConfirmDraftAndOpenClaimingAsync(
+        Guid expenseId,
+        Guid actorUserId,
+        UpdateReceiptDraftRequest? finalEdits = null,
+        CancellationToken ct = default);
+
+    Task<ClaimingBoardDto> GetClaimingBoardAsync(
+        Guid expenseId,
+        Guid viewerUserId,
+        bool isAdmin = false,
+        CancellationToken ct = default);
+
+    Task<ClaimingBoardDto> ToggleItemClaimAsync(
+        Guid expenseId,
+        Guid receiptItemId,
+        Guid userId,
+        CancellationToken ct = default);
+
+    Task<ClaimingBoardDto> FinalizeReceiptClaimsAsync(
+        Guid expenseId,
+        Guid actorUserId,
+        CancellationToken ct = default);
 }
