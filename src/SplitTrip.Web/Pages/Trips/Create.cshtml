@@ -1,0 +1,73 @@
+@page
+@model SplitTrip.Web.Pages.Trips.CreateModel
+@{
+    ViewData["Title"] = "Tạo chuyến đi mới";
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1 class="h3 fw-bold mb-1">Khởi tạo chuyến đi mới</h1>
+                <p class="text-muted small mb-0">Hệ thống sẽ tự động tạo lịch trình các ngày và cấp mã mời 8 ký tự duy nhất.</p>
+            </div>
+            <a asp-page="/Index" class="btn st-btn-ghost btn-sm">Hủy</a>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+        {
+            <div class="alert st-alert-danger mb-3" role="alert">@Model.ErrorMessage</div>
+        }
+
+        <div class="st-card p-4 p-sm-5">
+            <form method="post" novalidate>
+                <div class="row g-3">
+                    <div class="col-12 col-md-7">
+                        <label asp-for="Input.Name" class="form-label fw-semibold small">Tên chuyến đi</label>
+                        <input asp-for="Input.Name" class="form-control" placeholder="VD: Đà Lạt Săn Mây Tháng 12" />
+                        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-12 col-md-5">
+                        <label asp-for="Input.Destination" class="form-label fw-semibold small">Điểm đến</label>
+                        <input asp-for="Input.Destination" class="form-control" placeholder="VD: Đà Lạt, Lâm Đồng" />
+                        <span asp-validation-for="Input.Destination" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label asp-for="Input.StartDate" class="form-label fw-semibold small">Ngày khởi hành</label>
+                        <input asp-for="Input.StartDate" type="date" class="form-control" />
+                        <span asp-validation-for="Input.StartDate" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label asp-for="Input.EndDate" class="form-label fw-semibold small">Ngày kết thúc</label>
+                        <input asp-for="Input.EndDate" type="date" class="form-control" />
+                        <span asp-validation-for="Input.EndDate" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label asp-for="Input.EstimatedBudgetPerPerson" class="form-label fw-semibold small">Ngân sách dự kiến / người (VNĐ)</label>
+                        <input asp-for="Input.EstimatedBudgetPerPerson" type="number" step="50000" min="0" class="form-control" />
+                        <span asp-validation-for="Input.EstimatedBudgetPerPerson" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="Input.Description" class="form-label fw-semibold small">Ghi chú chung cho cả đoàn (tùy chọn)</label>
+                        <textarea asp-for="Input.Description" rows="3" class="form-control" placeholder="Mục tiêu chuyến đi, quy tắc quỹ chung, lưu ý hành lý..."></textarea>
+                        <span asp-validation-for="Input.Description" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    <a asp-page="/Index" class="btn st-btn-ghost">Quay lại</a>
+                    <button type="submit" class="btn st-btn-primary px-4">Tạo chuyến đi & Sinh mã mời</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

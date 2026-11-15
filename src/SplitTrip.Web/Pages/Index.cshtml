@@ -1,10 +1,156 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Trang chủ";
+
+    static (string Label, string Css) GetStatusMeta(TripStatus status) => status switch
+    {
+        TripStatus.Planning => ("Đang lên kế hoạch", "st-status-planning"),
+        TripStatus.Ongoing => ("Đang diễn ra", "st-status-ongoing"),
+        TripStatus.Settling => ("Đang tất toán", "st-status-settling"),
+        TripStatus.Completed => ("Đã hoàn tất", "st-status-completed"),
+        _ => (status.ToString(), "st-status-completed")
+    };
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@if (!Model.IsAuthenticated)
+{
+    <section class="st-hero p-4 p-md-5 mb-4">
+        <div class="row align-items-center g-4">
+            <div class="col-12 col-lg-7">
+                <span class="badge rounded-pill text-bg-light border text-secondary px-3 py-2 mb-3">
+                    Du lịch nhóm thời gian thực &middot; Gemini 2.5 Flash &middot; Napas VietQR
+                </span>
+                <h1 class="display-6 fw-bolder mb-3" style="letter-spacing: -0.025em;">
+                    Lên lịch trình chung, quét hóa đơn AI &amp; tối giản công nợ bằng một chạm.
+                </h1>
+                <p class="lead text-secondary fs-6 mb-4">
+                    Không còn bảng tính Excel rối rắm sau mỗi chuyến đi. SplitTrip đồng bộ lịch trình trực tiếp qua SignalR,
+                    bóc tách hóa đơn ăn uống bằng Gemini Vision và rút gọn số lần chuyển khoản xuống tối thiểu với mã VietQR.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a asp-page="/Account/Register" class="btn st-btn-primary px-4 py-2">Bắt đầu chuyến đi mới</a>
+                    <a asp-page="/Account/Login" class="btn st-btn-ghost px-4 py-2">Đăng nhập tài khoản</a>
+                </div>
+            </div>
+            <div class="col-12 col-lg-5">
+                <div class="st-card p-4 bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold small text-dark">Ví dụ tối ưu công nợ Min-Cash-Flow</span>
+                        <span class="st-status-pill st-status-ongoing">Tiết kiệm 62% giao dịch</span>
+                    </div>
+                    <div class="border rounded-3 p-3 bg-light mb-3 small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-secondary">8 khoản chi tiêu chồng chéo</span>
+                            <span class="fw-semibold">4 thành viên</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-secondary">Sau tối ưu đồ thị dòng tiền</span>
+                            <span class="fw-bold text-success">Chỉ còn tối đa 3 lượt quét QR</span>
+                        </div>
+                    </div>
+                    <div class="row g-2 text-center small">
+                        <div class="col-4">
+                            <div class="p-2 border rounded-3">
+                                <div class="fw-bold text-dark">AI Planner</div>
+                                <div class="text-muted" style="font-size:0.75rem;">Lịch trình tự động</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 border rounded-3">
+                                <div class="fw-bold text-dark">Live Claim</div>
+                                <div class="text-muted" style="font-size:0.75rem;">Chọn món trực tiếp</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 border rounded-3">
+                                <div class="fw-bold text-dark">VietQR</div>
+                                <div class="text-muted" style="font-size:0.75rem;">Quét đúng số tiền</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+else if (Model.IsSystemAdmin)
+{
+    <div class="st-hero p-4 p-md-5">
+        <span class="badge rounded-pill text-bg-warning mb-2">System Administrator</span>
+        <h1 class="h3 fw-bold mb-2">Xin chào Quản trị viên hệ thống SplitTrip</h1>
+        <p class="text-secondary mb-4">
+            Truy cập bảng điều khiển phân tích toàn nền tảng để theo dõi tổng chi tiêu đã xác thực, tỷ lệ ứng dụng AI và hiệu suất tối giản công nợ.
+        </p>
+        <a asp-page="/Admin/Index" class="btn st-btn-primary px-4">Mở Bảng điều khiển Quản trị →</a>
+    </div>
+}
+else
+{
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 fw-bold mb-1">Không gian chuyến đi của bạn</h1>
+            <p class="text-muted small mb-0">Quản lý các chuyến đi đang tham gia, chia sẻ mã mời hoặc tạo hành trình mới.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-page="/Trips/Join" class="btn st-btn-ghost">+ Tham gia bằng mã mời</a>
+            <a asp-page="/Trips/Create" class="btn st-btn-primary">+ Tạo chuyến đi mới</a>
+        </div>
+    </div>
+
+    @if (!Model.HasBankConfigured)
+    {
+        <div class="st-card p-3 px-4 mb-4 border-warning-subtle" style="background: #fffbeb;">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                <div class="small">
+                    <strong class="text-dark">Mẹo nhận tiền nhanh:</strong>
+                    <span class="text-secondary">Bạn chưa cấu hình số tài khoản ngân hàng VietQR. Cập nhật ngay để bạn bè quét QR trả tiền chỉ trong 3 giây!</span>
+                </div>
+                <a asp-page="/Account/Profile" class="btn btn-sm btn-warning fw-semibold text-nowrap">Cài đặt VietQR</a>
+            </div>
+        </div>
+    }
+
+    @if (Model.Trips.Count == 0)
+    {
+        <div class="st-card p-5 text-center">
+            <h2 class="h5 fw-bold mb-2">Bạn chưa có chuyến đi nào</h2>
+            <p class="text-muted small mb-4 mx-auto" style="max-width: 460px;">
+                Tạo một chuyến đi mới để nhận mã mời 8 ký tự cho hội bạn thân, hoặc nhập mã mời từ trưởng đoàn để tham gia ngay!
+            </p>
+            <div class="d-flex justify-content-center gap-2">
+                <a asp-page="/Trips/Create" class="btn st-btn-primary">Tạo chuyến đi đầu tiên</a>
+                <a asp-page="/Trips/Join" class="btn st-btn-ghost">Nhập mã mời 8 ký tự</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var trip in Model.Trips)
+            {
+                var meta = GetStatusMeta(trip.Status);
+                <div class="col-12 col-md-6 col-xl-4">
+                    <a asp-page="/Trips/Details" asp-route-id="@trip.Id" class="text-decoration-none text-reset d-block h-100">
+                        <div class="st-card st-card-hover p-4 h-100 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                                <span class="st-status-pill @meta.Css">@meta.Label</span>
+                                <span class="badge bg-light text-dark border font-monospace">@trip.InviteCode</span>
+                            </div>
+
+                            <h2 class="h5 fw-bold mb-1 text-dark">@trip.Name</h2>
+                            <div class="small text-secondary mb-3">
+                                📍 @trip.Destination
+                            </div>
+
+                            <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center small text-muted">
+                                <span>@trip.StartDate.ToString("dd/MM/yyyy") &rarr; @trip.EndDate.ToString("dd/MM/yyyy")</span>
+                                <span class="fw-semibold text-dark">@trip.ActiveMemberCount thành viên</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+    }
+}

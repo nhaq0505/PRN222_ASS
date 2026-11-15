@@ -1,0 +1,67 @@
+@page
+@model SplitTrip.Web.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "Đăng ký tài khoản";
+}
+
+<div class="row justify-content-center py-3">
+    <div class="col-12 col-md-8 col-lg-5">
+        <div class="st-card p-4 p-sm-5">
+            <div class="text-center mb-4">
+                <h1 class="h4 fw-bold mb-1">Tạo tài khoản SplitTrip</h1>
+                <p class="text-muted small mb-0">Bắt đầu lên lịch trình nhóm và tự động chia hóa đơn trong vài giây</p>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert st-alert-danger py-2 px-3 small mb-3" role="alert">
+                    @Model.ErrorMessage
+                </div>
+            }
+
+            <form method="post" novalidate>
+                <input type="hidden" asp-for="ReturnUrl" />
+
+                <div class="mb-3">
+                    <label asp-for="Input.FullName" class="form-label fw-semibold small">Họ và tên hiển thị</label>
+                    <input asp-for="Input.FullName" class="form-control" placeholder="Nguyễn Văn An" autocomplete="name" />
+                    <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Input.Email" class="form-label fw-semibold small">Email</label>
+                    <input asp-for="Input.Email" class="form-control" placeholder="an.nguyen@example.com" autocomplete="email" />
+                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Input.Password" class="form-label fw-semibold small">Mật khẩu (tối thiểu 6 ký tự)</label>
+                    <input asp-for="Input.Password" class="form-control" placeholder="••••••••" autocomplete="new-password" />
+                    <span asp-validation-for="Input.Password" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="Input.ConfirmPassword" class="form-label fw-semibold small">Xác nhận mật khẩu</label>
+                    <input asp-for="Input.ConfirmPassword" class="form-control" placeholder="••••••••" autocomplete="new-password" />
+                    <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+                </div>
+
+                <button type="submit" class="btn st-btn-primary w-100 py-2">
+                    Đăng ký & Bắt đầu ngay
+                </button>
+            </form>
+
+            <hr class="my-4" />
+            <div class="text-center small text-secondary">
+                Đã có tài khoản?
+                <a asp-page="/Account/Login" asp-route-returnUrl="@Model.ReturnUrl" class="st-link-teal text-decoration-none">
+                    Đăng nhập tại đây
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

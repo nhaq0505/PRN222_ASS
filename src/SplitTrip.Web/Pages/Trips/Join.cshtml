@@ -1,0 +1,40 @@
+@page
+@model SplitTrip.Web.Pages.Trips.JoinModel
+@{
+    ViewData["Title"] = "Tham gia chuyến đi bằng mã mời";
+}
+
+<div class="row justify-content-center py-3">
+    <div class="col-12 col-md-7 col-lg-5">
+        <div class="st-card p-4 p-sm-5">
+            <div class="text-center mb-4">
+                <h1 class="h4 fw-bold mb-1">Tham gia chuyến đi</h1>
+                <p class="text-muted small mb-0">Nhập mã mời 8 ký tự do trưởng đoàn chia sẻ để vào không gian chung.</p>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert st-alert-danger py-2 px-3 small mb-3" role="alert">@Model.ErrorMessage</div>
+            }
+
+            <form method="post" novalidate>
+                <div class="mb-4">
+                    <label asp-for="Code" class="form-label fw-semibold small">Mã mời chuyến đi</label>
+                    <input asp-for="Code" class="form-control form-control-lg text-center font-monospace text-uppercase fw-bold"
+                           style="letter-spacing: 0.18em;" maxlength="16" placeholder="VD: DL8K9P2M" autocomplete="off" />
+                    <span asp-validation-for="Code" class="text-danger small"></span>
+                </div>
+
+                <button type="submit" class="btn st-btn-primary w-100 py-2">Tham gia ngay</button>
+            </form>
+
+            <div class="text-center mt-3">
+                <a asp-page="/Index" class="small text-secondary text-decoration-none">← Quay về danh sách chuyến đi</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
