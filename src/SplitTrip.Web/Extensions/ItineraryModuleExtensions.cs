@@ -1,3 +1,6 @@
+using SplitTrip.Services.Itinerary;
+using SplitTrip.Web.Workers;
+
 namespace SplitTrip.Web.Extensions;
 
 public static class ItineraryModuleExtensions
@@ -6,7 +9,8 @@ public static class ItineraryModuleExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Stub hook for Wave 2 `live-itinerary` module registrations.
+        services.AddSplitTripItineraryServices();
+        services.AddHostedService<DepartureReminderWorker>();
         return services;
     }
 }
