@@ -59,45 +59,45 @@ Wave 3: Integration & Submission Verification (T25–T26)
 Detailed task definitions, acceptance criteria, file lists, and verification commands are tracked in `tasks/todo.md`:
 
 ### Wave 1: `foundation` (`SPEC-foundation.md`)
-- `T01`: Solution scaffolding (`.NET 10.0` 5-layer projects + `SplitTrip.Tests`), enums, and option models.
-- `T02`: Domain entities across all four capability areas (`BusinessObjects`).
-- `T03`: `SplitTripDbContext`, `InitialCreate` migration, LocalDB update, and `database/SplitTrip_Schema.sql` export.
-- `T04`: Foundation DAOs and Repositories (`User`, `Trip`, `TripMember`, `Notification`).
-- `T05`: `AuthService` (BCrypt, `appsettings` Admin, bank profile) and `TripService` (state machine, invite code, `NetBalance` ledger, leave guard).
-- `T06`: Foundation xUnit test suite (`AuthService`, `TripService`, leave guard).
-- `T07`: Cookie Auth, `partial class TripHub`, Wave 2 DI extension stubs, and responsive UI layout.
-- `T08`: Auth, Bank Profile (VietQR preview), and Trip Workspace Razor Pages with live SignalR sync.
-- **Checkpoint 1:** Wave 1 Foundation verified (`dotnet build`, `dotnet test`, LocalDB schema, clean module seams).
+- [x] `T01`: Solution scaffolding (`.NET 10.0` 5-layer projects + `SplitTrip.Tests`), enums, and option models.
+- [x] `T02`: Domain entities across all four capability areas (`BusinessObjects`).
+- [x] `T03`: `SplitTripDbContext`, `InitialCreate` migration, LocalDB update, and `database/SplitTrip_Schema.sql` export.
+- [x] `T04`: Foundation DAOs and Repositories (`User`, `Trip`, `TripMember`, `Notification`).
+- [x] `T05`: `AuthService` (BCrypt, `appsettings` Admin, bank profile) and `TripService` (state machine, invite code, `NetBalance` ledger, leave guard).
+- [x] `T06`: Foundation xUnit test suite (`AuthService`, `TripService`, leave guard).
+- [x] `T07`: Cookie Auth, `partial class TripHub`, Wave 2 DI extension stubs, and responsive UI layout.
+- [x] `T08`: Auth, Bank Profile (VietQR preview), and Trip Workspace Razor Pages with live SignalR sync.
+- [x] **Checkpoint 1:** Wave 1 Foundation verified (`dotnet build`, `dotnet test`, LocalDB schema, clean module seams).
 
 ### Wave 2A (Parallel): `live-itinerary` (`SPEC-live-itinerary.md`)
-- `T09`: `ItineraryDao`, `ItineraryRepository`, and `ItineraryService` (schedule CRUD, cross-day reorder, vote toggle/flip).
-- `T10`: `GeminiItineraryService` (`gemini-2.5-flash` structured JSON itinerary generator).
-- `T11`: `DepartureReminderWorker` (60s `BackgroundService`, 30-min lookahead, `ReminderSentAtUtc`).
-- `T12`: `TripHub.Itinerary.cs`, `ItineraryModuleExtensions.cs`, and `/Trips/Itinerary` collaborative timeline UI.
-- `T13`: `live-itinerary` xUnit test suite (`ItineraryServiceTests`, `GeminiItineraryServiceTests`, `DepartureReminderWorkerTests`).
-- **Checkpoint 2A:** `live-itinerary` verified.
+- [x] `T09`: `ItineraryDao`, `ItineraryRepository`, and `ItineraryService` (schedule CRUD, cross-day reorder, vote toggle/flip).
+- [x] `T10`: `GeminiItineraryService` (`gemini-2.5-flash` structured JSON itinerary generator).
+- [x] `T11`: `DepartureReminderWorker` (60s `BackgroundService`, 30-min lookahead, `ReminderSentAtUtc`).
+- [x] `T12`: `TripHub.Itinerary.cs`, `ItineraryModuleExtensions.cs`, and `/Trips/Itinerary` collaborative timeline UI.
+- [x] `T13`: `live-itinerary` xUnit test suite (`ItineraryServiceTests`, `GeminiItineraryServiceTests`, `DepartureReminderWorkerTests`).
+- [x] **Checkpoint 2A:** `live-itinerary` verified.
 
 ### Wave 2B (Parallel): `smart-expenses` (`SPEC-smart-expenses.md`)
-- `T14`: `ExpenseSplitCalculator` (5 split modes + pro-rata adjustments with Largest-Remainder integer VND math) & calculator unit tests.
-- `T15`: `ExpenseDao`, `ExpenseRepository`, and `ExpenseService` (CRUD, `DraftReview` gate, live item claiming, claiming lock).
-- `T16`: `GeminiReceiptScannerService` (`gemini-2.5-flash` Vision OCR + subtotal/total mismatch warning).
-- `T17`: `TripHub.Expenses.cs`, `ExpensesModuleExtensions.cs`, and `/Trips/Expenses` UI (5-mode split form, `DraftReview` editor, live claiming board).
-- `T18`: `smart-expenses` xUnit tests for Vision OCR mismatch blocking and live multi-user item claiming.
-- **Checkpoint 2B:** `smart-expenses` verified.
+- [x] `T14`: `ExpenseSplitCalculator` (5 split modes + pro-rata adjustments with Largest-Remainder integer VND math) & calculator unit tests.
+- [x] `T15`: `ExpenseDao`, `ExpenseRepository`, and `ExpenseService` (CRUD, `DraftReview` gate, live item claiming, claiming lock).
+- [x] `T16`: `GeminiReceiptScannerService` (`gemini-2.5-flash` Vision OCR + subtotal/total mismatch warning).
+- [x] `T17`: `TripHub.Expenses.cs`, `ExpensesModuleExtensions.cs`, and `/Trips/Expenses` UI (5-mode split form, `DraftReview` editor, live claiming board).
+- [x] `T18`: `smart-expenses` xUnit tests for Vision OCR mismatch blocking and live multi-user item claiming.
+- [x] **Checkpoint 2B:** `smart-expenses` verified.
 
 ### Wave 2C (Parallel): `debt-settlement` (`SPEC-debt-settlement.md`)
-- `T19`: `DebtSimplificationService` (`Min-Cash-Flow` greedy simplifier) and `VietQrService` (`img.vietqr.io` QuickLink builder) + unit tests.
-- `T20`: `SettlementDao`, `SettlementRepository`, and `SettlementService` (plan sync, 2-step handshake, auto-complete trip).
-- `T21`: `TripSettlementWorker` (`Ongoing → Settling` past `EndDate` + 24h `LastNudgedAtUtc` overdue debt nudges).
-- `T22`: `AdminAnalyticsDao`, `AdminAnalyticsRepository`, `AdminAnalyticsService`, and `/Admin` analytics dashboard.
-- `T23`: `TripHub.Settlement.cs`, `SettlementModuleExtensions.cs`, and `/Trips/Settlement` UI (ledger, VietQR modal, live handshake).
-- `T24`: `debt-settlement` xUnit tests for 2-step handshake authorization, auto-complete, and worker idempotency.
-- **Checkpoint 2C:** `debt-settlement` verified.
+- [x] `T19`: `DebtSimplificationService` (`Min-Cash-Flow` greedy simplifier) and `VietQrService` (`img.vietqr.io` QuickLink builder) + unit tests.
+- [x] `T20`: `SettlementDao`, `SettlementRepository`, and `SettlementService` (plan sync, 2-step handshake, auto-complete trip).
+- [x] `T21`: `TripSettlementWorker` (`Ongoing → Settling` past `EndDate` + 24h `LastNudgedAtUtc` overdue debt nudges).
+- [x] `T22`: `AdminAnalyticsDao`, `AdminAnalyticsRepository`, `AdminAnalyticsService`, and `/Admin` analytics dashboard.
+- [x] `T23`: `TripHub.Settlement.cs`, `SettlementModuleExtensions.cs`, and `/Trips/Settlement` UI (ledger, VietQR modal, live handshake).
+- [x] `T24`: `debt-settlement` xUnit tests for 2-step handshake authorization, auto-complete, and worker idempotency.
+- [x] **Checkpoint 2C:** `debt-settlement` verified.
 
 ### Wave 3: Final Integration & Submission Gate
-- `T25`: Cross-module end-to-end verification (ledger conservation across OCR, claiming, partial/disputed/confirmed settlements, and Admin KPIs).
-- `T26`: Documentation, configuration sanitation, SQL script check, and final build/test pass.
-- **Checkpoint 3:** Release-ready verification complete.
+- [x] `T25`: Cross-module end-to-end verification (ledger conservation across OCR, claiming, partial/disputed/confirmed settlements, and Admin KPIs) + `DemoDataSeeder`.
+- [x] `T26`: Documentation, configuration sanitation, SQL script check, and final build/test pass.
+- [x] **Checkpoint 3:** Release-ready verification complete.
 
 ## Risks and Mitigations
 

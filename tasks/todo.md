@@ -10,11 +10,11 @@
 **Description:** Create `SplitTrip.sln` with strict 5-layer project references (`BusinessObjects`, `DataAccessObjects`, `Repositories`, `Services`, `Web`) plus `tests/SplitTrip.Tests` on `net10.0`, and define all domain enums and strongly-typed configuration option models.
 
 **Acceptance criteria:**
-- [ ] `SplitTrip.Web` references only `SplitTrip.Services` and `SplitTrip.BusinessObjects` (no `DataAccessObjects` reference).
-- [ ] All 8 enums (`TripStatus`, `TripMemberRole`, `ExpenseCategory`, `ExpenseSplitMode`, `ReceiptScanStatus`, `SettlementStatus`, `VoteType`, `NotificationType`) and option models (`AdminAccountOptions`, `GeminiOptions`) exist in `SplitTrip.BusinessObjects`.
+- [x] `SplitTrip.Web` references only `SplitTrip.Services` and `SplitTrip.BusinessObjects` (no `DataAccessObjects` reference).
+- [x] All 8 enums (`TripStatus`, `TripMemberRole`, `ExpenseCategory`, `ExpenseSplitMode`, `ReceiptScanStatus`, `SettlementStatus`, `VoteType`, `NotificationType`) and option models (`AdminAccountOptions`, `GeminiOptions`) exist in `SplitTrip.BusinessObjects`.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** None
 
@@ -32,11 +32,11 @@
 **Description:** Define POCOs and navigation properties for `User`, `Trip`, `TripMember`, `TripDay`, `ItineraryItem`, `ItineraryVote`, `Expense`, `ExpenseSplit`, `ReceiptItem`, `ReceiptItemClaim`, `Settlement`, and `Notification` with zero EF/Web package dependencies.
 
 **Acceptance criteria:**
-- [ ] All 12 entities match exact property names, nullability, and types (`DateOnly`, `TimeOnly`, `decimal`, `Guid`) required by all four module specs.
-- [ ] `SplitTrip.BusinessObjects.csproj` has zero NuGet package dependencies.
+- [x] All 12 entities match exact property names, nullability, and types (`DateOnly`, `TimeOnly`, `decimal`, `Guid`) required by all four module specs.
+- [x] `SplitTrip.BusinessObjects.csproj` has zero NuGet package dependencies.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T01
 
@@ -51,12 +51,12 @@
 **Description:** Configure `SplitTripDbContext` and `SplitTripDbContextFactory` with `decimal(18,0)` money precision (`decimal(18,4)` on `ShareRatioOrWeight`), composite unique indexes, and `DeleteBehavior.Restrict` on all `User` FKs, apply `InitialCreate` on LocalDB, and export `database/SplitTrip_Schema.sql`.
 
 **Acceptance criteria:**
-- [ ] Unique indexes configured on `User.Email`, `Trip.InviteCode`, `(TripId, UserId)`, `(TripId, DayNumber)`, `(ItineraryItemId, UserId)`, `(ExpenseId, UserId)`, and `(ReceiptItemId, UserId)`.
-- [ ] `dotnet ef database update` succeeds on `(localdb)\mssqllocaldb` with zero cascade-path errors and generates idempotent `database/SplitTrip_Schema.sql`.
+- [x] Unique indexes configured on `User.Email`, `Trip.InviteCode`, `(TripId, UserId)`, `(TripId, DayNumber)`, `(ItineraryItemId, UserId)`, `(ExpenseId, UserId)`, and `(ReceiptItemId, UserId)`.
+- [x] `dotnet ef database update` succeeds on `(localdb)\mssqllocaldb` with zero cascade-path errors and generates idempotent `database/SplitTrip_Schema.sql`.
 
 **Verification:**
-- [ ] Migration update: `dotnet ef database update --project src/SplitTrip.DataAccessObjects --startup-project src/SplitTrip.Web`
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Migration update: `dotnet ef database update --project src/SplitTrip.DataAccessObjects --startup-project src/SplitTrip.Web`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T02
 
@@ -74,11 +74,11 @@
 **Description:** Implement async EF Core DAOs (`UserDao`, `TripDao`, `TripMemberDao`, `NotificationDao`) and corresponding repository contracts and implementations (`IUserRepository`, `ITripRepository`, `ITripMemberRepository`, `INotificationRepository`).
 
 **Acceptance criteria:**
-- [ ] DAOs encapsulate all `SplitTripDbContext` queries for users, trips, members, ledger aggregates, and notifications.
-- [ ] Repositories expose clean async interfaces with `CancellationToken` support without leaking `DbContext`.
+- [x] DAOs encapsulate all `SplitTripDbContext` queries for users, trips, members, ledger aggregates, and notifications.
+- [x] Repositories expose clean async interfaces with `CancellationToken` support without leaking `DbContext`.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T03
 
@@ -97,12 +97,12 @@
 **Description:** Implement `AuthService` (BCrypt registration/login, `appsettings.json` System Admin login with `Role = "Admin"`, VietQR bank profile update) and `TripService` (trip creation with `TripDay` seeding, 8-char `InviteCode` join/reactivate, lifecycle transitions, zero-sum `GetTripMemberBalancesAsync` excluding `DraftReview`, and `NetBalance == 0` leave/kick guard).
 
 **Acceptance criteria:**
-- [ ] `GetTripMemberBalancesAsync` computes `NetBalance = TotalPaidFinalizedExpenses - TotalOwedSplits + ConfirmedSettlementsPaid - ConfirmedSettlementsReceived` and ignores `ReceiptScanStatus.DraftReview`.
-- [ ] `RemoveOrLeaveMemberAsync` rejects leaving/removal when `NetBalance != 0m` and soft-deactivates (`IsActive = false`) settled members with financial history.
-- [ ] `ServiceCollectionExtensions.AddSplitTripFoundation` registers `SplitTripDbContext`, foundation DAOs, repositories, and services inside `SplitTrip.Services`.
+- [x] `GetTripMemberBalancesAsync` computes `NetBalance = TotalPaidFinalizedExpenses - TotalOwedSplits + ConfirmedSettlementsPaid - ConfirmedSettlementsReceived` and ignores `ReceiptScanStatus.DraftReview`.
+- [x] `RemoveOrLeaveMemberAsync` rejects leaving/removal when `NetBalance != 0m` and soft-deactivates (`IsActive = false`) settled members with financial history.
+- [x] `ServiceCollectionExtensions.AddSplitTripFoundation` registers `SplitTripDbContext`, foundation DAOs, repositories, and services inside `SplitTrip.Services`.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T04
 
@@ -120,11 +120,11 @@
 **Description:** Write xUnit unit tests covering user registration/BCrypt login, `appsettings.json` System Admin authentication, trip lifecycle transitions (`Planning → Ongoing → Settling → Completed` + Owner reopen), invite joining, and the `NetBalance != 0` member leave guard.
 
 **Acceptance criteria:**
-- [ ] Valid and invalid `TripStatus` transitions are verified.
-- [ ] Leaving with non-zero `NetBalance` throws `InvalidOperationException`; leaving with `0` balance succeeds.
+- [x] Valid and invalid `TripStatus` transitions are verified.
+- [x] Leaving with non-zero `NetBalance` throws `InvalidOperationException`; leaving with `0` balance succeeds.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Foundation"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Foundation"`
 
 **Dependencies:** T05
 
@@ -139,12 +139,12 @@
 **Description:** Implement `public partial class TripHub : Hub` (`trip:{tripId}` and `user:{userId}` groups), create `FoundationModuleExtensions.cs` plus Wave 2 stub files (`ItineraryModuleExtensions.cs`, `ExpensesModuleExtensions.cs`, `SettlementModuleExtensions.cs`) wired in `Program.cs`, configure `appsettings.json`, and build the shared travel UI layout (`_Layout.cshtml`, `site.css`).
 
 **Acceptance criteria:**
-- [ ] `Program.cs` calls `AddFoundationModule`, `AddItineraryModule`, `AddExpensesModule`, and `AddSettlementModule` so Wave 2 workers never edit `Program.cs`.
-- [ ] `TripHub.cs` is declared `public partial class TripHub : Hub` and authenticates `JoinTripRoom` / `LeaveTripRoom`.
-- [ ] `_Layout.cshtml` includes notification badge support and conditional Admin navigation (`User.IsInRole("Admin")`).
+- [x] `Program.cs` calls `AddFoundationModule`, `AddItineraryModule`, `AddExpensesModule`, and `AddSettlementModule` so Wave 2 workers never edit `Program.cs`.
+- [x] `TripHub.cs` is declared `public partial class TripHub : Hub` and authenticates `JoinTripRoom` / `LeaveTripRoom`.
+- [x] `_Layout.cshtml` includes notification badge support and conditional Admin navigation (`User.IsInRole("Admin")`).
 
 **Verification:**
-- [ ] Build & tests pass: `dotnet build SplitTrip.sln && dotnet test SplitTrip.sln --no-build`
+- [x] Build & tests pass: `dotnet build SplitTrip.sln && dotnet test SplitTrip.sln --no-build`
 
 **Dependencies:** T05, T06
 
@@ -163,11 +163,11 @@
 **Description:** Build `/Index`, `/Account/Login`, `/Account/Register`, `/Account/Logout`, `/Account/Profile` (VN Napas bank selector + account fields + live VietQR preview), `/Trips/Create`, `/Trips/Join`, and `/Trips/Details` (header, copyable `InviteCode`, Owner lifecycle controls, `NetBalance` member table, leave/kick actions, module navigation tabs, and live SignalR updates).
 
 **Acceptance criteria:**
-- [ ] Users can register, sign in, configure VietQR bank details, create/join trips via `InviteCode`, transition trip status, and observe live member/status updates over `SignalR`.
-- [ ] Sub-navigation links cleanly route to `/Trips/Itinerary`, `/Trips/Expenses`, and `/Trips/Settlement` with `tripId`.
+- [x] Users can register, sign in, configure VietQR bank details, create/join trips via `InviteCode`, transition trip status, and observe live member/status updates over `SignalR`.
+- [x] Sub-navigation links cleanly route to `/Trips/Itinerary`, `/Trips/Expenses`, and `/Trips/Settlement` with `tripId`.
 
 **Verification:**
-- [ ] Build & tests pass: `dotnet build SplitTrip.sln && dotnet test SplitTrip.sln --no-build`
+- [x] Build & tests pass: `dotnet build SplitTrip.sln && dotnet test SplitTrip.sln --no-build`
 
 **Dependencies:** T07
 
@@ -183,11 +183,11 @@
 ---
 
 ## Checkpoint 1: Wave 1 Foundation Gate
-- [ ] `dotnet build SplitTrip.sln` succeeds with 0 errors.
-- [ ] `dotnet test SplitTrip.sln --no-build` passes 100%.
-- [ ] `SplitTrip.Web.csproj` has no reference to `SplitTrip.DataAccessObjects`.
-- [ ] `TripHub` is `partial` and all three Wave 2 `*ModuleExtensions.cs` stubs are wired in `Program.cs`.
-- [ ] `database/SplitTrip_Schema.sql` is exported and synced with `InitialCreate`.
+- [x] `dotnet build SplitTrip.sln` succeeds with 0 errors.
+- [x] `dotnet test SplitTrip.sln --no-build` passes 100%.
+- [x] `SplitTrip.Web.csproj` has no reference to `SplitTrip.DataAccessObjects`.
+- [x] `TripHub` is `partial` and all three Wave 2 `*ModuleExtensions.cs` stubs are wired in `Program.cs`.
+- [x] `database/SplitTrip_Schema.sql` is exported and synced with `InitialCreate`.
 
 ---
 
@@ -197,11 +197,11 @@
 **Description:** Build data access, repository, and domain service logic for multi-day schedules (`TripDay`), itinerary stops (`ItineraryItem`), within-day and cross-day drag-and-drop `SortOrder` normalization, and `ItineraryVote` toggle/flip rules.
 
 **Acceptance criteria:**
-- [ ] Enforces active `TripMember` authorization, `Planning`/`Ongoing` edit lock, `EstimatedCost >= 0` (whole VND), and `EndTime > StartTime`.
-- [ ] Cross-day or time reschedule resets `ReminderSentAtUtc = null`; voting toggles off identical votes and flips opposite votes under unique `(ItineraryItemId, UserId)`.
+- [x] Enforces active `TripMember` authorization, `Planning`/`Ongoing` edit lock, `EstimatedCost >= 0` (whole VND), and `EndTime > StartTime`.
+- [x] Cross-day or time reschedule resets `ReminderSentAtUtc = null`; voting toggles off identical votes and flips opposite votes under unique `(ItineraryItemId, UserId)`.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** Checkpoint 1
 
@@ -220,11 +220,11 @@
 **Description:** Implement `IAiItineraryService` calling Gemini `2.5-flash` via `HttpClient` with `responseMimeType = "application/json"` and strict JSON schema to generate multi-day Vietnamese travel stops tagged with `IsAiSuggested = true`.
 
 **Acceptance criteria:**
-- [ ] Parses structured `days[].items[]` JSON, validates `dayNumber`, `TimeOnly`, and non-negative whole-VND `EstimatedCost`, and appends items cleanly to existing `TripDay`s.
-- [ ] Returns a clear, non-crashing Vietnamese validation error when `Gemini:ApiKey` is unconfigured or Gemini returns non-200 status.
+- [x] Parses structured `days[].items[]` JSON, validates `dayNumber`, `TimeOnly`, and non-negative whole-VND `EstimatedCost`, and appends items cleanly to existing `TripDay`s.
+- [x] Returns a clear, non-crashing Vietnamese validation error when `Gemini:ApiKey` is unconfigured or Gemini returns non-200 status.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T09
 
@@ -240,11 +240,11 @@
 **Description:** Create `DepartureReminderWorker` polling every 60s to find `ItineraryItem`s starting within `[nowLocal, nowLocal + 30 minutes]` (`UTC+07:00`) where `ReminderSentAtUtc == null`, stamping `ReminderSentAtUtc`, persisting `NotificationType.DepartureReminder` rows, and broadcasting live SignalR notifications.
 
 **Acceptance criteria:**
-- [ ] Stops departing in `<= 30` minutes emit exactly one `DepartureReminder` per active member and stamp `ReminderSentAtUtc = utcNow`.
-- [ ] Subsequent ticks skip already-reminded stops (`ReminderSentAtUtc != null`) until rescheduled.
+- [x] Stops departing in `<= 30` minutes emit exactly one `DepartureReminder` per active member and stamp `ReminderSentAtUtc = utcNow`.
+- [x] Subsequent ticks skip already-reminded stops (`ReminderSentAtUtc != null`) until rescheduled.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T09
 
@@ -260,11 +260,11 @@
 **Description:** Wire DI in `ItineraryModuleExtensions.cs`, add real-time SignalR hub operations in `TripHub.Itinerary.cs`, and build `/Trips/Itinerary` with multi-day tabs, stop CRUD modals, HTML5/Sortable drag-and-drop reordering, live upvote/downvote badges, and the AI Trip Planner modal.
 
 **Acceptance criteria:**
-- [ ] Adding, editing, deleting, reordering, voting, and importing AI stops synchronize live across connected browsers in `trip:{tripId}` without page reloads.
-- [ ] Read-only banner and disabled controls render when `Trip.Status` is `Settling` or `Completed`.
+- [x] Adding, editing, deleting, reordering, voting, and importing AI stops synchronize live across connected browsers in `trip:{tripId}` without page reloads.
+- [x] Read-only banner and disabled controls render when `Trip.Status` is `Settling` or `Completed`.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T10, T11
 
@@ -282,10 +282,10 @@
 **Description:** Add comprehensive unit tests for itinerary validation, cross-day `SortOrder` normalization, vote toggle/flip, mocked Gemini JSON itinerary generation, and 30-minute `DepartureReminderWorker` lookahead idempotency.
 
 **Acceptance criteria:**
-- [ ] All unit tests in `tests/SplitTrip.Tests/Itinerary/` pass with deterministic clock and mocked `HttpMessageHandler`.
+- [x] All unit tests in `tests/SplitTrip.Tests/Itinerary/` pass with deterministic clock and mocked `HttpMessageHandler`.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Itinerary"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Itinerary"`
 
 **Dependencies:** T12
 
@@ -299,8 +299,8 @@
 ---
 
 ## Checkpoint 2A: `live-itinerary` Module Gate
-- [ ] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Itinerary"` pass with 0 errors.
-- [ ] No files outside `live-itinerary` ownership were modified.
+- [x] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Itinerary"` pass with 0 errors.
+- [x] No files outside `live-itinerary` ownership were modified.
 
 ---
 
@@ -310,10 +310,10 @@
 **Description:** Build `ExpenseSplitCalculator` supporting `Equal`, `ExactAmount`, `Percentage`, `Shares`, and itemized pro-rata tax/tip/discount distribution using Largest-Remainder deterministic integer VND allocation (`Sum(OwedAmount) == TotalAmount`), paired with unit tests.
 
 **Acceptance criteria:**
-- [ ] `Sum(OwedAmount) == TotalAmount` holds with 0 fractional VND across uneven divisions (`100_000 / 3`), percentages (`100%`), weights, exact-amount validation, and itemized `TaxOrTipAmount - DiscountAmount` pro-rata allocation.
+- [x] `Sum(OwedAmount) == TotalAmount` holds with 0 fractional VND across uneven divisions (`100_000 / 3`), percentages (`100%`), weights, exact-amount validation, and itemized `TaxOrTipAmount - DiscountAmount` pro-rata allocation.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~ExpenseSplitCalculator"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~ExpenseSplitCalculator"`
 
 **Dependencies:** Checkpoint 1
 
@@ -330,11 +330,11 @@
 **Description:** Implement persistence and domain logic for creating/updating/deleting expenses, confirming `DraftReview → ClaimingOpen`, toggling `ReceiptItemClaim`s (shared dish splits + temporary `PaidByUserId` fallback for unclaimed items), locking claiming (`ClaimingOpen → Locked`), and emitting `ExpenseAdded` notifications.
 
 **Acceptance criteria:**
-- [ ] `DraftReview` expenses stay excluded from `NetBalance`; confirmed expenses (`None`, `ClaimingOpen`, `Locked`) preserve `Sum(OwedAmount) == TotalAmount` at every state transition.
-- [ ] `LockClaimingAsync` blocks `ClaimingOpen → Locked` while any `ReceiptItem` has zero claims.
+- [x] `DraftReview` expenses stay excluded from `NetBalance`; confirmed expenses (`None`, `ClaimingOpen`, `Locked`) preserve `Sum(OwedAmount) == TotalAmount` at every state transition.
+- [x] `LockClaimingAsync` blocks `ClaimingOpen → Locked` while any `ReceiptItem` has zero claims.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T14
 
@@ -351,11 +351,11 @@
 **Description:** Implement multimodal receipt scanning (`JPG`/`PNG`/`WEBP` validation + `gemini-2.5-flash` Vision JSON extraction) creating `ReceiptScanStatus.DraftReview` expenses and flagging `Sum(LineTotal) != SubtotalAmount` or `Subtotal + TaxOrTip - Discount != TotalAmount` discrepancies.
 
 **Acceptance criteria:**
-- [ ] Detects and reports exact VND mismatch deltas in `ReceiptDraftDto` and blocks transitioning `DraftReview → ClaimingOpen` until item lines and totals reconcile cleanly.
-- [ ] Rejects invalid file types or files `> 10 MB` safely and handles missing `Gemini:ApiKey` gracefully.
+- [x] Detects and reports exact VND mismatch deltas in `ReceiptDraftDto` and blocks transitioning `DraftReview → ClaimingOpen` until item lines and totals reconcile cleanly.
+- [x] Rejects invalid file types or files `> 10 MB` safely and handles missing `Gemini:ApiKey` gracefully.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T15
 
@@ -371,11 +371,11 @@
 **Description:** Register expense services in `ExpensesModuleExtensions.cs`, implement real-time dish claim/lock broadcasts in `TripHub.Expenses.cs`, and build `/Trips/Expenses` featuring the 5-mode split creator, receipt OCR uploader, `DraftReview` mismatch editor, and live SignalR dish-claiming board.
 
 **Acceptance criteria:**
-- [ ] Claiming or unclaiming a dish updates claimer avatars and live pro-rata `OwedAmount` breakdowns across all connected browsers via `SignalR`.
-- [ ] Category filters, payer badges, and receipt status pills (`DraftReview`, `ClaimingOpen`, `Locked`) render clearly.
+- [x] Claiming or unclaiming a dish updates claimer avatars and live pro-rata `OwedAmount` breakdowns across all connected browsers via `SignalR`.
+- [x] Category filters, payer badges, and receipt status pills (`DraftReview`, `ClaimingOpen`, `Locked`) render clearly.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T16
 
@@ -393,10 +393,10 @@
 **Description:** Write unit tests verifying mocked Gemini Vision receipt parsing, subtotal/total mismatch confirmation blocking, `DraftReview` ledger exclusion, multi-member shared dish claiming, pro-rata tax/discount calculation, and claim locking.
 
 **Acceptance criteria:**
-- [ ] All unit tests in `tests/SplitTrip.Tests/Expenses/` pass with 0 rounding drift.
+- [x] All unit tests in `tests/SplitTrip.Tests/Expenses/` pass with 0 rounding drift.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Expenses"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Expenses"`
 
 **Dependencies:** T17
 
@@ -409,8 +409,8 @@
 ---
 
 ## Checkpoint 2B: `smart-expenses` Module Gate
-- [ ] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Expenses"` pass with 0 errors.
-- [ ] Zero-sum split invariant (`Sum(OwedAmount) == TotalAmount`) verified across all 5 split modes.
+- [x] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Expenses"` pass with 0 errors.
+- [x] Zero-sum split invariant (`Sum(OwedAmount) == TotalAmount`) verified across all 5 split modes.
 
 ---
 
@@ -420,11 +420,11 @@
 **Description:** Implement the greedy max-creditor/max-debtor `Min-Cash-Flow` graph simplification service (`IDebtSimplificationService`) and Napas VietQR QuickLink URL generator (`IVietQrService` for `img.vietqr.io` with Vietnamese diacritic stripping), paired with unit tests.
 
 **Acceptance criteria:**
-- [ ] `DebtSimplificationService` enforces `∑ NetBalance == 0`, collapses circular/chain debts to `<= M - 1` transfers, and conserves total positive cash volume.
-- [ ] `VietQrService` generates valid `compact2` URLs with integer VND amounts and sanitized notes, and flags missing bank details cleanly.
+- [x] `DebtSimplificationService` enforces `∑ NetBalance == 0`, collapses circular/chain debts to `<= M - 1` transfers, and conserves total positive cash volume.
+- [x] `VietQrService` generates valid `compact2` URLs with integer VND amounts and sanitized notes, and flags missing bank details cleanly.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~DebtSimplification|FullyQualifiedName~VietQr"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~DebtSimplification|FullyQualifiedName~VietQr"`
 
 **Dependencies:** Checkpoint 1
 
@@ -442,11 +442,11 @@
 **Description:** Implement persistence and domain state machine for `SyncSettlementPlanAsync`, 2-step settlement handshake (`Pending / Disputed → MarkedPaid` by `FromUserId`; `MarkedPaid → Confirmed / Disputed` by `ToUserId`), manual debt nudge, and automatic `Settling → Completed` transition once all balances reach `0đ`.
 
 **Acceptance criteria:**
-- [ ] Only `Confirmed` transfers modify `NetBalance`; `SyncSettlementPlanAsync` never deletes `MarkedPaid` or `Confirmed` records.
-- [ ] Final `Confirmed` transfer bringing all trip member `NetBalance == 0m` on a `Settling` trip transitions `Trip.Status` to `Completed` (`ClosedAtUtc` set).
+- [x] Only `Confirmed` transfers modify `NetBalance`; `SyncSettlementPlanAsync` never deletes `MarkedPaid` or `Confirmed` records.
+- [x] Final `Confirmed` transfer bringing all trip member `NetBalance == 0m` on a `Settling` trip transitions `Trip.Status` to `Completed` (`ClosedAtUtc` set).
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T19
 
@@ -463,11 +463,11 @@
 **Description:** Implement `TripSettlementWorker` (`BackgroundService`) to auto-transition `Ongoing` trips past `EndDate` (`UTC+07:00`) to `Settling` (generating simplified settlements) and dispatch `NotificationType.DebtNudge` alerts for `Pending`/`Disputed` settlements older than 24 hours using `LastNudgedAtUtc`.
 
 **Acceptance criteria:**
-- [ ] Trips with `Status == Ongoing` and `EndDate < todayLocal` transition to `Settling` and notify members.
-- [ ] Overdue settlements emit at most one `DebtNudge` per 24-hour window (`LastNudgedAtUtc` stamped).
+- [x] Trips with `Status == Ongoing` and `EndDate < todayLocal` transition to `Settling` and notify members.
+- [x] Overdue settlements emit at most one `DebtNudge` per 24-hour window (`LastNudgedAtUtc` stamped).
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T20
 
@@ -483,11 +483,11 @@
 **Description:** Build read-only platform analytics across `AdminAnalyticsDao`, `AdminAnalyticsRepository`, `AdminAnalyticsService`, and `[Authorize(Roles = "Admin")]` `/Admin/Index` showing user/trip counts by `TripStatus`, finalized spending by `ExpenseCategory`, AI planner/OCR adoption, and `Min-Cash-Flow` transfer reduction metrics.
 
 **Acceptance criteria:**
-- [ ] `/Admin` enforces `Roles = "Admin"` (accessible via `appsettings.json` `AdminAccount` login, blocked for standard members).
-- [ ] Dashboard KPIs exclude `DraftReview` expenses and accurately summarize settlement completion rates.
+- [x] `/Admin` enforces `Roles = "Admin"` (accessible via `appsettings.json` `AdminAccount` login, blocked for standard members).
+- [x] Dashboard KPIs exclude `DraftReview` expenses and accurately summarize settlement completion rates.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T20
 
@@ -505,11 +505,11 @@
 **Description:** Wire Settlement & Admin services + `TripSettlementWorker` in `SettlementModuleExtensions.cs`, add real-time settlement handshake broadcasts in `TripHub.Settlement.cs`, and build `/Trips/Settlement` with zero-sum `NetBalance` visual bars, simplified transfer cards, VietQR payment modal, and live Mark Paid / Confirm / Dispute controls.
 
 **Acceptance criteria:**
-- [ ] Debtor marking paid and Creditor confirming or disputing update both screens in real time via `SignalR`, refreshing `NetBalance` bars and `TripStatus` badges live.
-- [ ] VietQR modal renders `img.vietqr.io` QR image with one-click copy buttons for account number, exact VND amount, and transfer note.
+- [x] Debtor marking paid and Creditor confirming or disputing update both screens in real time via `SignalR`, refreshing `NetBalance` bars and `TripStatus` badges live.
+- [x] VietQR modal renders `img.vietqr.io` QR image with one-click copy buttons for account number, exact VND amount, and transfer note.
 
 **Verification:**
-- [ ] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
+- [x] Build succeeds: `dotnet build SplitTrip.sln --configuration Debug`
 
 **Dependencies:** T21, T22
 
@@ -527,10 +527,10 @@
 **Description:** Add unit tests covering 2-step settlement authorization (`FromUserId` vs `ToUserId`), dispute reason enforcement, `Settling → Completed` auto-transition, `TripSettlementWorker` `EndDate` + 24h `LastNudgedAtUtc` cooldown rules, and Admin analytics aggregation.
 
 **Acceptance criteria:**
-- [ ] All unit tests in `tests/SplitTrip.Tests/Settlement/` pass 100%.
+- [x] All unit tests in `tests/SplitTrip.Tests/Settlement/` pass 100%.
 
 **Verification:**
-- [ ] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Settlement"`
+- [x] Tests pass: `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Settlement"`
 
 **Dependencies:** T23
 
@@ -543,8 +543,8 @@
 ---
 
 ## Checkpoint 2C: `debt-settlement` Module Gate
-- [ ] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Settlement"` pass with 0 errors.
-- [ ] Zero-sum ledger (`∑ NetBalance == 0`), VietQR QuickLink generation, 2-step SignalR handshake, worker automation, and `/Admin` role guard verified.
+- [x] `dotnet build SplitTrip.sln` and `dotnet test SplitTrip.sln --filter "FullyQualifiedName~Settlement"` pass with 0 errors.
+- [x] Zero-sum ledger (`∑ NetBalance == 0`), VietQR QuickLink generation, 2-step SignalR handshake, worker automation, and `/Admin` role guard verified.
 
 ---
 
@@ -554,16 +554,17 @@
 **Description:** Verify end-to-end integration across `foundation`, `live-itinerary`, `smart-expenses`, and `debt-settlement` (including OCR `DraftReview` → live dish claiming → `Min-Cash-Flow` simplification → VietQR → 2-step confirmation → `TripStatus.Completed` → Admin analytics) and confirm `database/SplitTrip_Schema.sql` matches the current EF Core model.
 
 **Acceptance criteria:**
-- [ ] Full test suite across Foundation, Itinerary, Expenses, and Settlement passes simultaneously.
-- [ ] `SplitTrip.Web` maintains strict 5-layer isolation (no `DataAccessObjects` reference) and zero unreferenced/broken navigation links across `/Trips/Details`, `/Trips/Itinerary`, `/Trips/Expenses`, `/Trips/Settlement`, and `/Admin`.
+- [x] Full test suite across Foundation, Itinerary, Expenses, and Settlement passes simultaneously.
+- [x] `SplitTrip.Web` maintains strict 5-layer isolation (no `DataAccessObjects` reference) and zero unreferenced/broken navigation links across `/Trips/Details`, `/Trips/Itinerary`, `/Trips/Expenses`, `/Trips/Settlement`, and `/Admin`.
 
 **Verification:**
-- [ ] Full build & test: `dotnet build SplitTrip.sln --configuration Release && dotnet test SplitTrip.sln --configuration Release --no-build`
+- [x] Full build & test: `dotnet build SplitTrip.sln --configuration Release && dotnet test SplitTrip.sln --configuration Release --no-build`
 
 **Dependencies:** Checkpoint 2A, Checkpoint 2B, Checkpoint 2C
 
 **Files touched:**
-- `tests/SplitTrip.Tests/Integration/*.cs` (if cross-module integration tests added)
+- `src/SplitTrip.Services/Seed/DemoDataSeeder.cs`
+- `tests/SplitTrip.Tests/Integration/EndToEndTripLifecycleTests.cs`
 - `database/SplitTrip_Schema.sql`
 
 **Estimated scope:** Small (1–2 files)
@@ -574,11 +575,11 @@
 **Description:** Document architecture, setup commands, LocalDB connection string, `appsettings.json` System Admin credentials, optional `Gemini:ApiKey` user-secrets setup, VietQR flow, and test commands in `README.md`, ensuring zero secrets are tracked in git.
 
 **Acceptance criteria:**
-- [ ] `appsettings.json` contains empty `Gemini:ApiKey` (`""`) and documented local development defaults.
-- [ ] `README.md` enables a fresh clone to build, migrate/run against SQL Server LocalDB, and execute all tests in under 3 commands.
+- [x] `appsettings.json` contains empty `Gemini:ApiKey` (`""`) and documented local development defaults.
+- [x] `README.md` enables a fresh clone to build, migrate/run against SQL Server LocalDB, and execute all tests in under 3 commands.
 
 **Verification:**
-- [ ] Clean status & test pass: `dotnet test SplitTrip.sln`
+- [x] Clean status & test pass: `dotnet test SplitTrip.sln`
 
 **Dependencies:** T25
 
@@ -590,6 +591,6 @@
 ---
 
 ## Checkpoint 3: Final Release Gate
-- [ ] All 4 specs (`SPEC-foundation.md`, `SPEC-live-itinerary.md`, `SPEC-smart-expenses.md`, `SPEC-debt-settlement.md`), `CAPABILITY-MAP.md`, `tasks/plan.md`, `tasks/todo.md`, and `database/SplitTrip_Schema.sql` are committed and consistent.
-- [ ] `dotnet build SplitTrip.sln` succeeds with 0 errors and `dotnet test SplitTrip.sln` passes 100% of unit and integration tests.
-- [ ] Git commit history reflects clean, atomic vertical slices pushed incrementally to `origin/main`.
+- [x] All 4 specs (`SPEC-foundation.md`, `SPEC-live-itinerary.md`, `SPEC-smart-expenses.md`, `SPEC-debt-settlement.md`), `CAPABILITY-MAP.md`, `tasks/plan.md`, `tasks/todo.md`, and `database/SplitTrip_Schema.sql` are committed and consistent.
+- [x] `dotnet build SplitTrip.sln` succeeds with 0 errors and `dotnet test SplitTrip.sln` passes 100% of unit and integration tests.
+- [x] Git commit history reflects clean, atomic vertical slices pushed incrementally to `origin/main`.
