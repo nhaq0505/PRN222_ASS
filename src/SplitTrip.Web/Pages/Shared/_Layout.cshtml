@@ -1,50 +1,224 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+﻿@using System.Security.Claims
+@using SplitTrip.Services.Auth
+@using SplitTrip.Services.Notifications
+@using SplitTrip.Services.Notifications.Dtos
+@inject INotificationService NotificationService
+@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isAdmin = User.IsInRole(AuthService.AdminRole);
+    var fullName = User.FindFirstValue(ClaimTypes.Name) ?? "Thành viên";
+    var email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
+    var initials = string.Join("", fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).TakeLast(2).Select(s => char.ToUpperInvariant(s[0])));
+    if (string.IsNullOrWhiteSpace(initials))
+    {
+        initials = "ST";
+    }
+
+    int unreadCount = 0;
+    IReadOnlyList<NotificationDto> recentNotifications = [];
+
+    if (isAuthenticated && !isAdmin && User.TryGetUserId(out var currentUserId))
+    {
+        unreadCount = await NotificationService.GetUnreadCountAsync(currentUserId);
+        recentNotifications = await NotificationService.GetRecentAsync(currentUserId, 10);
+    }
+}
+<!DOCTYPE html>
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - SplitTrip.Web</title>
-    <script type="importmap"></script>
+    <title>@(ViewData["Title"] is string title && !string.IsNullOrWhiteSpace(title) ? $"{title} — SplitTrip" : "SplitTrip — Lên lịch du lịch nhóm & Chia tiền VietQR")</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/SplitTrip.Web.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+<body class="st-body" data-authenticated="@(isAuthenticated ? "true" : "false")">
+    <header class="st-navbar-wrapper sticky-top">
+        <nav class="navbar navbar-expand-lg st-navbar">
             <div class="container">
-                <a class="navbar-brand" asp-area="" asp-page="/Index">SplitTrip.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand st-brand d-flex align-items-center gap-2" asp-page="/Index">
+                    <span class="st-brand-mark" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+                        </svg>
+                    </span>
+                    <span>SplitTrip</span>
+                </a>
+
+                <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#stMainNav"
+                        aria-controls="stMainNav" aria-expanded="false" aria-label="Mở menu điều hướng">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
+
+                <div class="collapse navbar-collapse" id="stMainNav">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Index">Home</a>
+                            <a class="nav-link st-nav-link" asp-page="/Index">Tổng quan</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
-                        </li>
+                        @if (isAuthenticated && !isAdmin)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link st-nav-link" asp-page="/Trips/Create">+ Tạo chuyến đi</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link st-nav-link" asp-page="/Trips/Join">Nhập mã mời</a>
+                            </li>
+                        }
+                        @if (isAdmin)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link st-nav-link st-nav-admin" asp-page="/Admin/Index">
+                                    <span class="st-dot-admin"></span> Quản trị hệ thống
+                                </a>
+                            </li>
+                        }
                     </ul>
+
+                    <div class="d-flex align-items-center gap-2">
+                        @if (isAuthenticated)
+                        {
+                            @if (!isAdmin)
+                            {
+                                <div class="dropdown">
+                                    <button class="btn st-icon-btn position-relative" type="button" id="stNotifBtn"
+                                            data-bs-toggle="dropdown" aria-expanded="false" aria-label="Thông báo">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                                        </svg>
+                                        <span id="stNotifBadge" class="st-notif-badge @(unreadCount > 0 ? "" : "d-none")">@unreadCount</span>
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-end st-notif-dropdown p-0 shadow-lg border-0" aria-labelledby="stNotifBtn">
+                                        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-light rounded-top">
+                                            <span class="fw-semibold small text-dark">Thông báo chuyến đi</span>
+                                            <button type="button" id="stMarkAllReadBtn" class="btn btn-link btn-sm p-0 text-decoration-none st-link-teal">
+                                                Đánh dấu đã đọc
+                                            </button>
+                                        </div>
+                                        <div id="stNotifList" class="st-notif-list">
+                                            @if (recentNotifications.Count == 0)
+                                            {
+                                                <div id="stNotifEmpty" class="p-4 text-center text-muted small">
+                                                    Chưa có thông báo mới nào.
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var item in recentNotifications)
+                                                {
+                                                    <a href="@(string.IsNullOrWhiteSpace(item.ActionUrl) ? "#" : item.ActionUrl)"
+                                                       class="st-notif-item @(item.IsRead ? "" : "st-notif-unread")"
+                                                       data-notif-id="@item.Id">
+                                                        <div class="fw-semibold small text-dark">@item.Title</div>
+                                                        <div class="small text-secondary">@item.Message</div>
+                                                        <div class="st-notif-time">@item.CreatedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</div>
+                                                    </a>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="dropdown">
+                                <button class="btn st-user-chip dropdown-toggle d-flex align-items-center gap-2" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="st-avatar-sm">@initials</span>
+                                    <span class="d-none d-sm-inline text-truncate st-user-name">@fullName</span>
+                                    @if (isAdmin)
+                                    {
+                                        <span class="badge rounded-pill text-bg-warning">Admin</span>
+                                    }
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 st-user-menu">
+                                    <li class="px-3 py-2 border-bottom">
+                                        <div class="fw-semibold text-dark small">@fullName</div>
+                                        <div class="text-muted" style="font-size: 0.78rem;">@email</div>
+                                    </li>
+                                    @if (!isAdmin)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item py-2" asp-page="/Account/Profile">
+                                                Hồ sơ & Ngân hàng VietQR
+                                            </a>
+                                        </li>
+                                    }
+                                    else
+                                    {
+                                        <li>
+                                            <a class="dropdown-item py-2" asp-page="/Admin/Index">
+                                                Bảng điều khiển Admin
+                                            </a>
+                                        </li>
+                                    }
+                                    <li><hr class="dropdown-divider my-1" /></li>
+                                    <li>
+                                        <form method="post" asp-page="/Account/Logout" class="m-0">
+                                            <button type="submit" class="dropdown-item py-2 text-danger fw-medium">
+                                                Đăng xuất
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <a class="btn st-btn-ghost btn-sm" asp-page="/Account/Login">Đăng nhập</a>
+                            <a class="btn st-btn-primary btn-sm" asp-page="/Account/Register">Đăng ký miễn phí</a>
+                        }
+                    </div>
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
+    <main role="main" class="st-main py-4">
         <div class="container">
-            &copy; 2026 - SplitTrip.Web - <a asp-area="" asp-page="/Privacy">Privacy</a>
+            @if (TempData["SuccessMessage"] is string successMsg && !string.IsNullOrWhiteSpace(successMsg))
+            {
+                <div class="alert st-alert-success alert-dismissible fade show mb-4" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">Thành công:</span>
+                        <span>@successMsg</span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+                </div>
+            }
+            @if (TempData["ErrorMessage"] is string errorMsg && !string.IsNullOrWhiteSpace(errorMsg))
+            {
+                <div class="alert st-alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">Lưu ý:</span>
+                        <span>@errorMsg</span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>
+                </div>
+            }
+
+            @RenderBody()
+        </div>
+    </main>
+
+    <div id="stToastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;"></div>
+
+    <footer class="st-footer mt-auto py-4">
+        <div class="container d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 small text-muted">
+            <div>
+                <strong class="text-dark">SplitTrip</strong> &mdash; Nền tảng lên lịch du lịch nhóm, chia hóa đơn AI & tất toán tối ưu VietQR.
+            </div>
+            <div>PRN222 &middot; .NET 10 &middot; SignalR Real-time</div>
         </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/signalr/signalr.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
