@@ -13,6 +13,7 @@ builder.Services.AddSettlementModule(builder.Configuration);
 var app = builder.Build();
 
 await app.Services.MigrateSplitTripDatabaseAsync();
+await app.Services.SeedSplitTripDemoDataAsync();
 
 if (!app.Environment.IsDevelopment())
 {

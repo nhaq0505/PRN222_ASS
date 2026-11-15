@@ -9,6 +9,7 @@ using SplitTrip.Repositories.Trips;
 using SplitTrip.Repositories.Users;
 using SplitTrip.Services.Auth;
 using SplitTrip.Services.Notifications;
+using SplitTrip.Services.Seed;
 using SplitTrip.Services.Trips;
 
 namespace SplitTrip.Services;
@@ -64,6 +65,18 @@ public static class ServiceCollectionExtensions
         else
         {
             await dbContext.Database.EnsureCreatedAsync(ct);
+        }
+    }
+
+    public static async Task SeedSplitTripDemoDataAsync(
+        this IServiceProvider services,
+        CancellationToken ct = default)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SplitTripDbContext>();
+        if (dbContext.Database.IsRelational())
+        {
+            await DemoDataSeeder.SeedIfEmptyAsync(dbContext, ct);
         }
     }
 }
