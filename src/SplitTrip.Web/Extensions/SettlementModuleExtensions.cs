@@ -1,3 +1,6 @@
+using SplitTrip.Services.Settlements;
+using SplitTrip.Web.Workers;
+
 namespace SplitTrip.Web.Extensions;
 
 public static class SettlementModuleExtensions
@@ -6,7 +9,9 @@ public static class SettlementModuleExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Stub hook for Wave 2 `debt-settlement` module registrations.
+        services.AddSplitTripSettlements();
+        services.AddHostedService<TripSettlementWorker>();
+
         return services;
     }
 }
