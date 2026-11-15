@@ -1,0 +1,311 @@
+/* Smart Expenses & Live Receipt Claiming Styles */
+
+.st-cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--st-border);
+    background: #ffffff;
+    color: #475569;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.st-cat-pill:hover {
+    background: #f1f5f9;
+    color: var(--st-text);
+    border-color: #cbd5e1;
+}
+
+.st-cat-pill.active {
+    background: var(--st-primary);
+    border-color: var(--st-primary);
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
+}
+
+.st-expense-card {
+    background: #ffffff;
+    border: 1px solid var(--st-border);
+    border-radius: 16px;
+    padding: 1.15rem 1.25rem;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.st-expense-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: var(--st-shadow-sm);
+}
+
+.st-expense-card-draft {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.st-expense-card-claiming {
+    background: linear-gradient(to right, #f0fdfa, #ffffff 35%);
+    border-color: #99f6e4;
+}
+
+.st-cat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.st-split-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.78rem;
+    color: #334155;
+}
+
+.st-split-chip-amount {
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+.st-mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    background: #f1f5f9;
+    padding: 0.35rem;
+    border-radius: 12px;
+}
+
+@media (max-width: 576px) {
+    .st-mode-tabs {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.st-mode-tab-btn {
+    border: 0;
+    background: transparent;
+    border-radius: 9px;
+    padding: 0.48rem 0.6rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.14s ease;
+}
+
+.st-mode-tab-btn.active {
+    background: #ffffff;
+    color: var(--st-primary);
+    box-shadow: var(--st-shadow-sm);
+}
+
+.st-participant-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.st-participant-row.is-inactive {
+    opacity: 0.55;
+    background: #f8fafc;
+}
+
+.st-stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.st-step-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--st-border);
+    background: #ffffff;
+    color: #64748b;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+
+.st-step-pill.active {
+    border-color: var(--st-primary);
+    background: #f0fdfa;
+    color: var(--st-primary);
+}
+
+.st-step-pill.done {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.st-step-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 0.76rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.st-step-pill.active .st-step-num {
+    background: var(--st-primary);
+    color: #ffffff;
+}
+
+.st-step-pill.done .st-step-num {
+    background: #16a34a;
+    color: #ffffff;
+}
+
+.st-mismatch-banner {
+    background: #fffbeb;
+    border: 1.5px solid #f59e0b;
+    color: #92400e;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+}
+
+.st-reconciled-banner {
+    background: #f0fdf4;
+    border: 1.5px solid #22c55e;
+    color: #166534;
+    border-radius: 14px;
+    padding: 0.9rem 1.2rem;
+}
+
+.st-dish-card {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1rem 1.15rem;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.st-dish-card:hover {
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+    box-shadow: var(--st-shadow-sm);
+}
+
+.st-dish-card.is-claimed-by-me {
+    border-color: var(--st-primary);
+    background: #f0fdfa;
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.1);
+}
+
+.st-dish-card.is-unclaimed {
+    border-style: dashed;
+    border-color: #f59e0b;
+    background: #fffdf5;
+}
+
+.st-dish-card.is-locked {
+    cursor: default;
+}
+
+.st-dish-card.is-locked:hover {
+    transform: none;
+}
+
+.st-dish-check {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 2px solid #cbd5e1;
+    background: #ffffff;
+    color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: all 0.14s ease;
+}
+
+.st-dish-card.is-claimed-by-me .st-dish-check {
+    border-color: var(--st-primary);
+    background: var(--st-primary);
+    color: #ffffff;
+}
+
+.st-claimer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem 0.2rem 0.25rem;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.st-claimer-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--st-primary-soft);
+    color: var(--st-primary);
+    font-size: 0.65rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.st-receipt-preview-frame {
+    background: #0f172a;
+    border-radius: 14px;
+    overflow: hidden;
+    max-height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.st-receipt-preview-frame img {
+    max-width: 100%;
+    max-height: 480px;
+    object-fit: contain;
+}
+
+@keyframes stPulseHighlight {
+    0% { box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.42); }
+    100% { box-shadow: 0 0 0 10px rgba(15, 118, 110, 0); }
+}
+
+.st-dish-just-updated {
+    animation: stPulseHighlight 0.75s ease-out;
+}
