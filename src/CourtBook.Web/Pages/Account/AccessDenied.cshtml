@@ -1,0 +1,22 @@
+@page
+@model CourtBook.Web.Pages.Account.AccessDeniedModel
+@{
+    ViewData["Title"] = "Không có quyền truy cập";
+}
+
+<div class="cb-auth-wrap">
+    <div class="cb-auth-card cb-auth-card--center">
+        <div class="cb-access-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#DC2626" stroke-width="1.8" />
+                <path d="M12 8V12.5M12 15.8V16" stroke="#DC2626" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+        </div>
+        <h1 class="cb-auth-title">Không có quyền truy cập</h1>
+        <p class="cb-auth-subtitle">Tài khoản hiện tại không có quyền xem trang quản trị này.</p>
+        <div class="cb-access-actions">
+            <a asp-page="/Index" class="cb-btn cb-btn--primary">Về trang đặt sân</a>
+            <a asp-page="/Account/Login" class="cb-btn cb-btn--outline">Đổi tài khoản</a>
+        </div>
+    </div>
+</div>

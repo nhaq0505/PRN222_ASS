@@ -1,0 +1,263 @@
+@page
+@model CourtBook.Web.Pages.Admin.IndexModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Quản trị sàn";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    string selectedDateStr = Model.SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    bool isUsersTab = Model.ActiveTab == "users";
+    int? currentUserId = User.GetUserId();
+}
+
+<div class="cb-container">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Quản trị sàn CourtBook</h1>
+            <p class="cb-page-subtitle">Phê duyệt cụm sân đối tác, giám sát giao dịch toàn sàn ngày @Model.SelectedDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</p>
+        </div>
+
+        <form method="get" class="cb-admin-date-form">
+            <input type="hidden" name="tab" value="@Model.ActiveTab" />
+            @if (!isUsersTab && Model.StatusFilter.HasValue)
+            {
+                <input type="hidden" name="status" value="@Model.StatusFilter" />
+            }
+            <label for="adminDateInput" class="cb-field__label">Ngày xem</label>
+            <input id="adminDateInput"
+                   type="date"
+                   name="date"
+                   value="@selectedDateStr"
+                   class="cb-input"
+                   onchange="this.form.submit()" />
+        </form>
+    </div>
+
+    <div class="cb-kpi-grid">
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Cụm sân đang mở</div>
+            <div class="cb-kpi-card__value">@Model.Dashboard.ActiveVenuesCount</div>
+            <div class="cb-kpi-card__sub">Chờ duyệt: @Model.Dashboard.PendingVenuesCount</div>
+        </div>
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Chủ sân &amp; Hội viên</div>
+            <div class="cb-kpi-card__value">@(Model.Dashboard.TotalOwnersCount + Model.Dashboard.TotalMembersCount)</div>
+            <div class="cb-kpi-card__sub">@Model.Dashboard.TotalOwnersCount chủ sân · @Model.Dashboard.TotalMembersCount khách</div>
+        </div>
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Đơn đặt toàn sàn hôm nay</div>
+            <div class="cb-kpi-card__value">@Model.Dashboard.TodayBookingsCount</div>
+            <div class="cb-kpi-card__sub">Trên tất cả cụm sân hoạt động</div>
+        </div>
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Tổng doanh thu GMV ngày</div>
+            <div class="cb-kpi-card__value">@($"{Model.Dashboard.TodayPlatformGmvVnd.ToString("N0", viCulture)}đ")</div>
+            <div class="cb-kpi-card__sub">Đơn xác nhận &amp; đã check-in</div>
+        </div>
+    </div>
+
+    <div class="cb-tabs" role="tablist" aria-label="Quản trị sàn">
+        <a class="cb-tab @(!isUsersTab ? "is-active" : "")"
+           href="/Admin?date=@selectedDateStr&tab=venues">
+            Duyệt &amp; Quản lý Cụm sân (@Model.Dashboard.AllVenues.Count)
+        </a>
+        <a class="cb-tab @(isUsersTab ? "is-active" : "")"
+           href="/Admin?date=@selectedDateStr&tab=users">
+            Chủ sân &amp; Người dùng (@Model.Dashboard.AllUsers.Count)
+        </a>
+    </div>
+
+    @if (!isUsersTab)
+    {
+        <div class="cb-filter-pills" role="navigation" aria-label="Lọc theo trạng thái cụm sân">
+            <a class="cb-filter-pill @(!Model.StatusFilter.HasValue ? "is-active" : "")"
+               href="/Admin?date=@selectedDateStr&tab=venues">Tất cả</a>
+            <a class="cb-filter-pill @(Model.StatusFilter == VenueStatus.PendingApproval ? "is-active" : "")"
+               href="/Admin?date=@selectedDateStr&tab=venues&status=@VenueStatus.PendingApproval">Chờ duyệt</a>
+            <a class="cb-filter-pill @(Model.StatusFilter == VenueStatus.Active ? "is-active" : "")"
+               href="/Admin?date=@selectedDateStr&tab=venues&status=@VenueStatus.Active">Hoạt động</a>
+            <a class="cb-filter-pill @(Model.StatusFilter == VenueStatus.Suspended ? "is-active" : "")"
+               href="/Admin?date=@selectedDateStr&tab=venues&status=@VenueStatus.Suspended">Tạm khóa</a>
+        </div>
+
+        <div class="cb-table-card">
+            @if (Model.Dashboard.AllVenues.Count == 0)
+            {
+                <div class="cb-empty-state">
+                    <h3>Không có cụm sân phù hợp</h3>
+                    <p>Không tìm thấy cụm sân nào khớp với trạng thái lọc hiện tại.</p>
+                    <a class="cb-btn cb-btn--outline cb-btn--sm" href="/Admin?date=@selectedDateStr&tab=venues">Xem tất cả cụm sân</a>
+                </div>
+            }
+            else
+            {
+                <div class="cb-table-scroll">
+                    <table class="cb-table">
+                        <thead>
+                            <tr>
+                                <th>Cụm sân</th>
+                                <th>Chủ sân</th>
+                                <th>Số sân</th>
+                                <th>Đơn hôm nay</th>
+                                <th>GMV ngày</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (AdminVenueRowDto v in Model.Dashboard.AllVenues)
+                            {
+                                (string badgeClass, string statusLabel) = v.Status switch
+                                {
+                                    VenueStatus.Active => ("cb-badge--active", "Hoạt động"),
+                                    VenueStatus.PendingApproval => ("cb-badge--pending", "Chờ duyệt"),
+                                    VenueStatus.Suspended => ("cb-badge--suspended", "Tạm khóa"),
+                                    _ => ("cb-badge--cancelled", v.Status.ToString())
+                                };
+
+                                <tr>
+                                    <td>
+                                        <div><strong>@v.Name</strong></div>
+                                        <div class="cb-table__sub">@v.District · @v.Address</div>
+                                    </td>
+                                    <td>
+                                        <div>@v.OwnerName</div>
+                                        <div class="cb-table__sub">@v.OwnerEmail</div>
+                                    </td>
+                                    <td class="cb-tabular">@v.CourtCount sân</td>
+                                    <td class="cb-tabular">@v.TodayBookings</td>
+                                    <td class="cb-tabular"><strong>@($"{v.TodayRevenueVnd.ToString("N0", viCulture)}đ")</strong></td>
+                                    <td><span class="cb-badge @badgeClass">@statusLabel</span></td>
+                                    <td>
+                                        <div class="cb-table__actions">
+                                            @if (v.Status == VenueStatus.PendingApproval)
+                                            {
+                                                <form method="post" asp-page-handler="ApproveVenue">
+                                                    <input type="hidden" name="venueId" value="@v.Id" />
+                                                    <input type="hidden" name="date" value="@selectedDateStr" />
+                                                    @if (Model.StatusFilter.HasValue)
+                                                    {
+                                                        <input type="hidden" name="status" value="@Model.StatusFilter" />
+                                                    }
+                                                    <button type="submit" class="cb-btn cb-btn--primary cb-btn--sm">Duyệt lên sàn</button>
+                                                </form>
+                                                <form method="post" asp-page-handler="SuspendVenue">
+                                                    <input type="hidden" name="venueId" value="@v.Id" />
+                                                    <input type="hidden" name="date" value="@selectedDateStr" />
+                                                    @if (Model.StatusFilter.HasValue)
+                                                    {
+                                                        <input type="hidden" name="status" value="@Model.StatusFilter" />
+                                                    }
+                                                    <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Tạm khóa</button>
+                                                </form>
+                                            }
+                                            else if (v.Status == VenueStatus.Active)
+                                            {
+                                                <a href="/Venues/@v.Id" class="cb-btn cb-btn--ghost cb-btn--sm">Xem</a>
+                                                <form method="post" asp-page-handler="SuspendVenue">
+                                                    <input type="hidden" name="venueId" value="@v.Id" />
+                                                    <input type="hidden" name="date" value="@selectedDateStr" />
+                                                    @if (Model.StatusFilter.HasValue)
+                                                    {
+                                                        <input type="hidden" name="status" value="@Model.StatusFilter" />
+                                                    }
+                                                    <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Tạm khóa</button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form method="post" asp-page-handler="ReactivateVenue">
+                                                    <input type="hidden" name="venueId" value="@v.Id" />
+                                                    <input type="hidden" name="date" value="@selectedDateStr" />
+                                                    @if (Model.StatusFilter.HasValue)
+                                                    {
+                                                        <input type="hidden" name="status" value="@Model.StatusFilter" />
+                                                    }
+                                                    <button type="submit" class="cb-btn cb-btn--primary cb-btn--sm">Mở lại</button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="cb-table-card">
+            @if (Model.Dashboard.AllUsers.Count == 0)
+            {
+                <div class="cb-empty-state">
+                    <h3>Chưa có tài khoản nào</h3>
+                    <p>Danh sách chủ sân và hội viên sẽ hiển thị tại đây.</p>
+                </div>
+            }
+            else
+            {
+                <div class="cb-table-scroll">
+                    <table class="cb-table">
+                        <thead>
+                            <tr>
+                                <th>Họ và tên</th>
+                                <th>Liên hệ</th>
+                                <th>Vai trò</th>
+                                <th>Cụm sân sở hữu</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (AdminUserRowDto u in Model.Dashboard.AllUsers)
+                            {
+                                (string roleClass, string roleLabel) = u.Role switch
+                                {
+                                    UserRole.Admin => ("cb-badge--admin", "Quản trị sàn"),
+                                    UserRole.CourtOwner => ("cb-badge--owner", "Chủ cụm sân"),
+                                    _ => ("cb-badge--member", "Hội viên")
+                                };
+
+                                <tr>
+                                    <td><strong>@u.FullName</strong></td>
+                                    <td>
+                                        <div>@u.Email</div>
+                                        @if (!string.IsNullOrWhiteSpace(u.PhoneNumber))
+                                        {
+                                            <div class="cb-table__sub cb-tabular">@u.PhoneNumber</div>
+                                        }
+                                    </td>
+                                    <td><span class="cb-badge @roleClass">@roleLabel</span></td>
+                                    <td class="cb-tabular">@(u.OwnedVenueCount > 0 ? $"{u.OwnedVenueCount} cụm sân" : "—")</td>
+                                    <td>
+                                        <span class="cb-badge @(u.IsActive ? "cb-badge--active" : "cb-badge--suspended")">
+                                            @(u.IsActive ? "Hoạt động" : "Đã khóa")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (currentUserId == u.Id)
+                                        {
+                                            <span class="cb-table__sub">Tài khoản hiện tại</span>
+                                        }
+                                        else
+                                        {
+                                            <form method="post" asp-page-handler="ToggleUser">
+                                                <input type="hidden" name="targetUserId" value="@u.Id" />
+                                                <input type="hidden" name="date" value="@selectedDateStr" />
+                                                <button type="submit"
+                                                        class="cb-btn @(u.IsActive ? "cb-btn--danger-outline" : "cb-btn--primary") cb-btn--sm">
+                                                    @(u.IsActive ? "Khóa" : "Mở khóa")
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>

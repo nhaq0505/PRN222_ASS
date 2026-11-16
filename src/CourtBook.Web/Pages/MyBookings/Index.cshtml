@@ -1,0 +1,112 @@
+@page
+@model CourtBook.Web.Pages.MyBookings.IndexModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Lịch của tôi";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    bool isHistoryTab = Model.ActiveTab == "history";
+    IReadOnlyList<BookingTicketDto> tickets = isHistoryTab ? Model.Bookings.History : Model.Bookings.Upcoming;
+}
+
+<div class="cb-container cb-container--narrow">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Lịch đặt của tôi</h1>
+            <p class="cb-page-subtitle">Quản lý các khung giờ sắp tới và xem lại lịch sử đặt sân trên toàn sàn</p>
+        </div>
+        <a asp-page="/Index" class="cb-btn cb-btn--outline">Đặt thêm sân</a>
+    </div>
+
+    <div class="cb-tabs" role="tablist" aria-label="Phân loại lịch đặt">
+        <a class="cb-tab @(!isHistoryTab ? "is-active" : "")"
+           href="/MyBookings?tab=upcoming">
+            Sắp tới (@Model.Bookings.Upcoming.Count)
+        </a>
+        <a class="cb-tab @(isHistoryTab ? "is-active" : "")"
+           href="/MyBookings?tab=history">
+            Lịch sử &amp; Đã hủy (@Model.Bookings.History.Count)
+        </a>
+    </div>
+
+    @if (tickets.Count == 0)
+    {
+        <div class="cb-empty-state">
+            <h3>@(isHistoryTab ? "Chưa có lịch sử đặt sân" : "Bạn chưa có lịch đặt sắp tới")</h3>
+            <p>@(isHistoryTab ? "Các đơn đã hoàn tất hoặc đã hủy sẽ được lưu lại tại đây." : "Khám phá các cụm sân đối tác và chọn khung giờ trống để giữ chỗ ngay.")</p>
+            @if (!isHistoryTab)
+            {
+                <a asp-page="/Index" class="cb-btn cb-btn--primary">Khám phá cụm sân</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="cb-ticket-list">
+            @foreach (BookingTicketDto ticket in tickets)
+            {
+                string sportModifier = ticket.SportType == SportType.Pickleball
+                    ? "cb-ticket--pickleball"
+                    : "cb-ticket--badminton";
+                string sportBadgeClass = ticket.SportType == SportType.Pickleball
+                    ? "cb-badge--pickleball"
+                    : "cb-badge--badminton";
+                string sportLabel = ticket.SportType == SportType.Pickleball
+                    ? "Pickleball"
+                    : "Cầu lông";
+
+                (string statusClass, string statusLabel) = ticket.Status switch
+                {
+                    BookingStatus.Confirmed => ("cb-badge--confirmed", "Đã xác nhận"),
+                    BookingStatus.CheckedIn => ("cb-badge--checkedin", "Đã check-in"),
+                    BookingStatus.Cancelled => ("cb-badge--cancelled", "Đã hủy"),
+                    BookingStatus.Held => ("cb-badge--held", "Đang giữ chỗ"),
+                    BookingStatus.Expired => ("cb-badge--cancelled", "Hết hạn"),
+                    _ => ("cb-badge--cancelled", ticket.Status.ToString())
+                };
+
+                <article class="cb-ticket @sportModifier">
+                    <div class="cb-ticket__main">
+                        <div class="cb-ticket__title-row">
+                            <a href="/Venues/@ticket.VenueId" class="cb-ticket__court">@ticket.VenueName</a>
+                            <span style="color:var(--cb-ink-muted);font-weight:500;">·</span>
+                            <strong class="cb-ticket__court">@ticket.CourtName</strong>
+                            <span class="cb-badge @sportBadgeClass">@sportLabel</span>
+                            <span class="cb-ticket__code">#@ticket.BookingCode</span>
+                        </div>
+                        <div class="cb-ticket__meta">
+                            <span>@ticket.VenueAddress (@ticket.VenueDistrict)</span>
+                        </div>
+                        <div class="cb-ticket__meta">
+                            <span>@ticket.PlayDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</span>
+                            <span>·</span>
+                            <span>@ticket.TimeRangeLabel</span>
+                            <span>·</span>
+                            <span>@(ticket.IsIndoor ? "Trong nhà" : "Ngoài trời")</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(ticket.Notes))
+                        {
+                            <p class="cb-ticket__notes">Ghi chú: @ticket.Notes</p>
+                        }
+                    </div>
+
+                    <div class="cb-ticket__side cb-ticket__actions">
+                        <strong class="cb-ticket__price">@($"{ticket.PriceVnd.ToString("N0", viCulture)}đ")</strong>
+                        <span class="cb-badge @statusClass">@statusLabel</span>
+
+                        <a href="/Venues/@ticket.VenueId" class="cb-btn cb-btn--outline cb-btn--sm">Đặt lại sân này</a>
+
+                        @if (ticket.CanCancel)
+                        {
+                            <form method="post"
+                                  asp-page-handler="Cancel"
+                                  onsubmit="return confirm('Bạn có chắc muốn hủy lịch #@ticket.BookingCode không?');">
+                                <input type="hidden" name="bookingId" value="@ticket.Id" />
+                                <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Hủy lịch</button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>

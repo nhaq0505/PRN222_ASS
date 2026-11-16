@@ -1,0 +1,537 @@
+@page
+@model CourtBook.Web.Pages.Owner.IndexModel
+@using System.Globalization
+@using CourtBook.BusinessObjects.Entities
+@{
+    ViewData["Title"] = "Kênh Chủ sân";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    string selectedDateStr = Model.SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    Venue? selectedVenue = Model.Portal.SelectedVenue;
+}
+
+<div class="cb-container">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Kênh quản lý Chủ sân</h1>
+            @if (!Model.ShowNewVenueForm && selectedVenue is not null)
+            {
+                <p class="cb-page-subtitle">@selectedVenue.Name · @selectedVenue.District · Ngày @Model.SelectedDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)</p>
+            }
+            else
+            {
+                <p class="cb-page-subtitle">Đăng ký cụm sân mới và quản lý lịch đặt sân, bảng giá theo thời gian thực</p>
+            }
+        </div>
+
+        @if (!Model.ShowNewVenueForm && selectedVenue is not null)
+        {
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                @if (selectedVenue.Status == VenueStatus.Active)
+                {
+                    <a href="/Venues/@selectedVenue.Id" class="cb-btn cb-btn--outline cb-btn--sm">Xem trang công khai</a>
+                }
+                <form method="get" class="cb-admin-date-form">
+                    <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                    <input type="hidden" name="tab" value="@Model.ActiveTab" />
+                    <label for="ownerDateInput" class="cb-field__label">Ngày xem</label>
+                    <input id="ownerDateInput"
+                           type="date"
+                           name="date"
+                           value="@selectedDateStr"
+                           class="cb-input"
+                           onchange="this.form.submit()" />
+                </form>
+            </div>
+        }
+    </div>
+
+    <div class="cb-venue-switcher" role="navigation" aria-label="Chuyển đổi cụm sân">
+        @foreach (OwnerVenueSummaryDto v in Model.Portal.MyVenues)
+        {
+            bool isSelected = !Model.ShowNewVenueForm && selectedVenue?.Id == v.Id;
+            string dotClass = v.Status switch
+            {
+                VenueStatus.PendingApproval => "cb-venue-pill__dot--pending",
+                VenueStatus.Suspended => "cb-venue-pill__dot--suspended",
+                _ => string.Empty
+            };
+
+            <a href="/Owner?venueId=@v.Id&date=@selectedDateStr&tab=@Model.ActiveTab"
+               class="cb-venue-pill @(isSelected ? "is-active" : "")">
+                <span class="cb-venue-pill__dot @dotClass" aria-hidden="true"></span>
+                <span>@v.Name</span>
+                <span class="cb-venue-pill__count">(@v.CourtCount sân)</span>
+                @if (v.Status == VenueStatus.PendingApproval)
+                {
+                    <span class="cb-badge cb-badge--pending">Chờ duyệt</span>
+                }
+                else if (v.Status == VenueStatus.Suspended)
+                {
+                    <span class="cb-badge cb-badge--suspended">Tạm khóa</span>
+                }
+            </a>
+        }
+
+        <a href="/Owner?mode=newvenue"
+           class="cb-venue-pill cb-venue-pill--new @(Model.ShowNewVenueForm ? "is-active" : "")">
+            + Đăng ký cụm sân mới
+        </a>
+    </div>
+
+    @if (Model.ShowNewVenueForm || selectedVenue is null)
+    {
+        <div class="cb-form-card" style="max-width:760px;">
+            <div class="cb-form-card__header">
+                <div>
+                    <h2 class="cb-form-card__title">Đăng ký cụm sân mới</h2>
+                    <p class="cb-page-subtitle" style="margin-top:4px;">
+                        @(Model.Portal.MyVenues.Count == 0
+                            ? "Tạo cụm sân đầu tiên của bạn để bắt đầu cấu hình sân con và mở nhận đặt lịch."
+                            : "Thêm cụm sân mới vào hệ thống quản lý của bạn.")
+                    </p>
+                </div>
+                @if (Model.Portal.MyVenues.Count > 0)
+                {
+                    <a href="/Owner" class="cb-btn cb-btn--ghost cb-btn--sm">Quay lại cụm sân</a>
+                }
+            </div>
+
+            <form method="post" asp-page-handler="CreateVenue" class="cb-form-grid">
+                <div class="cb-field cb-field--full">
+                    <label asp-for="VenueForm.Name" class="cb-field__label">Tên cụm sân</label>
+                    <input asp-for="VenueForm.Name" class="cb-input" placeholder="VD: Thảo Điền Racquet Club" required maxlength="150" />
+                </div>
+
+                <div class="cb-field">
+                    <label asp-for="VenueForm.District" class="cb-field__label">Khu vực / Quận</label>
+                    <input asp-for="VenueForm.District" class="cb-input" placeholder="VD: TP. Thủ Đức, Quận 7" required maxlength="100" />
+                </div>
+
+                <div class="cb-field">
+                    <label asp-for="VenueForm.PhoneNumber" class="cb-field__label">Số điện thoại liên hệ</label>
+                    <input asp-for="VenueForm.PhoneNumber" class="cb-input" type="tel" placeholder="VD: 0902000011" maxlength="25" />
+                </div>
+
+                <div class="cb-field cb-field--full">
+                    <label asp-for="VenueForm.Address" class="cb-field__label">Địa chỉ chi tiết</label>
+                    <input asp-for="VenueForm.Address" class="cb-input" placeholder="VD: 28 Xuân Thủy, Thảo Điền, TP. Thủ Đức" required maxlength="250" />
+                </div>
+
+                <div class="cb-field">
+                    <label asp-for="VenueForm.OpenHour" class="cb-field__label">Giờ mở cửa</label>
+                    <input asp-for="VenueForm.OpenHour" type="number" min="5" max="22" class="cb-input cb-tabular" required />
+                </div>
+
+                <div class="cb-field">
+                    <label asp-for="VenueForm.CloseHour" class="cb-field__label">Giờ đóng cửa</label>
+                    <input asp-for="VenueForm.CloseHour" type="number" min="6" max="23" class="cb-input cb-tabular" required />
+                </div>
+
+                <div class="cb-field cb-field--full">
+                    <label asp-for="VenueForm.AccentColor" class="cb-field__label">Màu thẻ hiển thị trên sàn</label>
+                    <select asp-for="VenueForm.AccentColor" class="cb-select">
+                        <option value="emerald">Xanh lá (Emerald)</option>
+                        <option value="teal">Xanh ngọc (Teal)</option>
+                        <option value="blue">Xanh dương (Blue)</option>
+                        <option value="amber">Vàng ấm (Amber)</option>
+                    </select>
+                </div>
+
+                <div class="cb-field cb-field--full">
+                    <label asp-for="VenueForm.Description" class="cb-field__label">Mô tả cụm sân</label>
+                    <textarea asp-for="VenueForm.Description"
+                              class="cb-input"
+                              maxlength="600"
+                              placeholder="Giới thiệu mặt sân, tiện ích bãi xe, đèn chiếu sáng..."
+                              style="height:auto;min-height:92px;padding:10px 12px;resize:vertical;"></textarea>
+                </div>
+
+                <div class="cb-field cb-field--full">
+                    <button type="submit" class="cb-btn cb-btn--primary">Đăng ký cụm sân</button>
+                </div>
+            </form>
+        </div>
+    }
+    else
+    {
+        @if (selectedVenue.Status == VenueStatus.PendingApproval)
+        {
+            <div class="cb-alert cb-alert--warning" role="status">
+                <div>
+                    <strong>Cụm sân đang chờ Quản trị sàn phê duyệt.</strong>
+                    <span> Bạn có thể thêm sân con và thiết lập giá ngay bây giờ; sau khi được duyệt, cụm sân sẽ xuất hiện công khai để người chơi đặt lịch.</span>
+                </div>
+            </div>
+        }
+        else if (selectedVenue.Status == VenueStatus.Suspended)
+        {
+            <div class="cb-alert cb-alert--danger" role="alert">
+                <div>
+                    <strong>Cụm sân hiện đang tạm khóa.</strong>
+                    <span> Cụm sân tạm thời ẩn khỏi danh sách công khai và không nhận lượt đặt mới. Liên hệ Quản trị sàn để mở lại hoạt động.</span>
+                </div>
+            </div>
+        }
+
+        <div class="cb-kpi-grid">
+            <div class="cb-kpi-card">
+                <div class="cb-kpi-card__label">Đơn đặt trong ngày</div>
+                <div class="cb-kpi-card__value">@Model.Portal.TodayConfirmedCount</div>
+                <div class="cb-kpi-card__sub">Đã check-in: @Model.Portal.TodayCheckedInCount</div>
+            </div>
+            <div class="cb-kpi-card">
+                <div class="cb-kpi-card__label">Doanh thu ngày</div>
+                <div class="cb-kpi-card__value">@($"{Model.Portal.TodayRevenueVnd.ToString("N0", viCulture)}đ")</div>
+                <div class="cb-kpi-card__sub">Đơn xác nhận &amp; đã check-in</div>
+            </div>
+            <div class="cb-kpi-card">
+                <div class="cb-kpi-card__label">Công suất lấp đầy</div>
+                <div class="cb-kpi-card__value">@($"{Model.Portal.OccupancyPercent:0.#}%")</div>
+                <div class="cb-kpi-card__sub">Trên tổng số khung giờ mở</div>
+            </div>
+            <div class="cb-kpi-card">
+                <div class="cb-kpi-card__label">Đang giữ chỗ live</div>
+                <div class="cb-kpi-card__value">@Model.Portal.ActiveHoldsCount ô</div>
+                <div class="cb-kpi-card__sub">Tự động nhả sau 2 phút</div>
+            </div>
+        </div>
+
+        <div class="cb-tabs" role="tablist" aria-label="Quản lý cụm sân">
+            <a class="cb-tab @(Model.ActiveTab == "bookings" ? "is-active" : "")"
+               href="/Owner?venueId=@selectedVenue.Id&date=@selectedDateStr&tab=bookings">
+                Lịch đặt tại sân (@Model.Portal.DateBookings.Count)
+            </a>
+            <a class="cb-tab @(Model.ActiveTab == "courts" ? "is-active" : "")"
+               href="/Owner?venueId=@selectedVenue.Id&date=@selectedDateStr&tab=courts">
+                Quản lý sân con (@Model.Portal.VenueCourts.Count)
+            </a>
+            <a class="cb-tab @(Model.ActiveTab == "settings" ? "is-active" : "")"
+               href="/Owner?venueId=@selectedVenue.Id&date=@selectedDateStr&tab=settings">
+                Thông tin cụm sân
+            </a>
+        </div>
+
+        @if (Model.ActiveTab == "bookings")
+        {
+            <div class="cb-table-card">
+                @if (Model.Portal.DateBookings.Count == 0)
+                {
+                    <div class="cb-empty-state">
+                        <h3>Chưa có đơn đặt nào</h3>
+                        <p>Không ghi nhận lượt giữ chỗ hoặc đặt sân nào tại @selectedVenue.Name trong ngày @Model.SelectedDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture).</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="cb-table-scroll">
+                        <table class="cb-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Khung giờ</th>
+                                    <th>Sân</th>
+                                    <th>Khách hàng</th>
+                                    <th>Giá tiền</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (BookingTicketDto b in Model.Portal.DateBookings)
+                                {
+                                    string sportBadgeClass = b.SportType == SportType.Pickleball
+                                        ? "cb-badge--pickleball"
+                                        : "cb-badge--badminton";
+                                    string sportLabel = b.SportType == SportType.Pickleball
+                                        ? "Pickleball"
+                                        : "Cầu lông";
+
+                                    (string statusClass, string statusLabel) = b.Status switch
+                                    {
+                                        BookingStatus.Confirmed => ("cb-badge--confirmed", "Đã xác nhận"),
+                                        BookingStatus.CheckedIn => ("cb-badge--checkedin", "Đã check-in"),
+                                        BookingStatus.Held => ("cb-badge--held", "Đang giữ chỗ"),
+                                        BookingStatus.Cancelled => ("cb-badge--cancelled", "Đã hủy"),
+                                        BookingStatus.Expired => ("cb-badge--cancelled", "Hết hạn"),
+                                        _ => ("cb-badge--cancelled", b.Status.ToString())
+                                    };
+
+                                    <tr>
+                                        <td>
+                                            <strong class="cb-table__code">@b.BookingCode</strong>
+                                            @if (!string.IsNullOrWhiteSpace(b.Notes))
+                                            {
+                                                <div class="cb-table__sub">@b.Notes</div>
+                                            }
+                                        </td>
+                                        <td class="cb-tabular">@b.TimeRangeLabel</td>
+                                        <td>
+                                            <div>@b.CourtName</div>
+                                            <span class="cb-badge @sportBadgeClass">@sportLabel</span>
+                                        </td>
+                                        <td>
+                                            <div>@b.CustomerName</div>
+                                            @if (!string.IsNullOrWhiteSpace(b.CustomerPhone))
+                                            {
+                                                <div class="cb-table__sub cb-tabular">@b.CustomerPhone</div>
+                                            }
+                                        </td>
+                                        <td class="cb-tabular"><strong>@($"{b.PriceVnd.ToString("N0", viCulture)}đ")</strong></td>
+                                        <td><span class="cb-badge @statusClass">@statusLabel</span></td>
+                                        <td>
+                                            <div class="cb-table__actions">
+                                                @if (b.CanCheckIn)
+                                                {
+                                                    <form method="post" asp-page-handler="CheckIn">
+                                                        <input type="hidden" name="bookingId" value="@b.Id" />
+                                                        <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                                                        <input type="hidden" name="date" value="@selectedDateStr" />
+                                                        <button type="submit" class="cb-btn cb-btn--primary cb-btn--sm">Check-in</button>
+                                                    </form>
+                                                }
+                                                @if (b.CanCancel)
+                                                {
+                                                    <form method="post"
+                                                          asp-page-handler="CancelBooking"
+                                                          onsubmit="return confirm('Xác nhận hủy đơn @b.BookingCode?');">
+                                                        <input type="hidden" name="bookingId" value="@b.Id" />
+                                                        <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                                                        <input type="hidden" name="date" value="@selectedDateStr" />
+                                                        <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Hủy</button>
+                                                    </form>
+                                                }
+                                                @if (!b.CanCheckIn && !b.CanCancel)
+                                                {
+                                                    <span class="cb-table__sub">—</span>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+        else if (Model.ActiveTab == "courts")
+        {
+            <div class="cb-admin-courts-layout">
+                <div class="cb-table-card">
+                    @if (Model.Portal.VenueCourts.Count == 0)
+                    {
+                        <div class="cb-empty-state">
+                            <h3>Chưa có sân con nào</h3>
+                            <p>Hãy thêm sân Pickleball hoặc Cầu lông đầu tiên cho @selectedVenue.Name ở biểu mẫu bên cạnh.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="cb-table-scroll">
+                            <table class="cb-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã</th>
+                                        <th>Tên sân</th>
+                                        <th>Môn</th>
+                                        <th>Loại &amp; Mặt sân</th>
+                                        <th>Giá thường / Giờ vàng</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (Court c in Model.Portal.VenueCourts)
+                                    {
+                                        string sportBadgeClass = c.SportType == SportType.Pickleball
+                                            ? "cb-badge--pickleball"
+                                            : "cb-badge--badminton";
+                                        string sportLabel = c.SportType == SportType.Pickleball
+                                            ? "Pickleball"
+                                            : "Cầu lông";
+
+                                        <tr>
+                                            <td><strong class="cb-table__code">@c.Code</strong></td>
+                                            <td><strong>@c.Name</strong></td>
+                                            <td><span class="cb-badge @sportBadgeClass">@sportLabel</span></td>
+                                            <td>
+                                                <div>@(c.IsIndoor ? "Trong nhà" : "Ngoài trời")</div>
+                                                <div class="cb-table__sub">@c.Surface</div>
+                                            </td>
+                                            <td class="cb-tabular">
+                                                @($"{c.BasePricePerHour / 1000:0}k / {c.PeakPricePerHour / 1000:0}k")
+                                            </td>
+                                            <td>
+                                                <span class="cb-badge @(c.IsActive ? "cb-badge--active" : "cb-badge--maintenance")">
+                                                    @(c.IsActive ? "Hoạt động" : "Bảo trì")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="cb-table__actions">
+                                                    <form method="post" asp-page-handler="ToggleCourt">
+                                                        <input type="hidden" name="courtId" value="@c.Id" />
+                                                        <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                                                        <input type="hidden" name="date" value="@selectedDateStr" />
+                                                        <button type="submit"
+                                                                class="cb-btn @(c.IsActive ? "cb-btn--outline" : "cb-btn--primary") cb-btn--sm">
+                                                            @(c.IsActive ? "Bảo trì" : "Mở lại")
+                                                        </button>
+                                                    </form>
+                                                    <a class="cb-btn cb-btn--ghost cb-btn--sm"
+                                                       href="/Owner?venueId=@selectedVenue.Id&date=@selectedDateStr&tab=courts&editCourtId=@c.Id">Sửa</a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <div class="cb-form-card">
+                    <div class="cb-form-card__header">
+                        <h2 class="cb-form-card__title">@(Model.IsEditingCourt ? $"Chỉnh sửa sân {Model.CourtForm.Code}" : "Thêm sân con mới")</h2>
+                        @if (Model.IsEditingCourt)
+                        {
+                            <a class="cb-btn cb-btn--ghost cb-btn--sm" href="/Owner?venueId=@selectedVenue.Id&date=@selectedDateStr&tab=courts">Hủy sửa</a>
+                        }
+                    </div>
+
+                    <form method="post" asp-page-handler="SaveCourt" class="cb-form-grid">
+                        <input type="hidden" asp-for="CourtForm.Id" />
+                        <input type="hidden" name="CourtForm.VenueId" value="@selectedVenue.Id" />
+                        <input type="hidden" name="date" value="@selectedDateStr" />
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.Code" class="cb-field__label">Mã sân</label>
+                            <input asp-for="CourtForm.Code" class="cb-input" placeholder="VD: PB-05" required maxlength="20" />
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.Name" class="cb-field__label">Tên sân</label>
+                            <input asp-for="CourtForm.Name" class="cb-input" placeholder="VD: Sân Pickleball 5" required maxlength="100" />
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.SportType" class="cb-field__label">Môn thể thao</label>
+                            <select asp-for="CourtForm.SportType" class="cb-select">
+                                <option value="@SportType.Pickleball">Pickleball</option>
+                                <option value="@SportType.Badminton">Cầu lông</option>
+                            </select>
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.IsIndoor" class="cb-field__label">Không gian</label>
+                            <select asp-for="CourtForm.IsIndoor" class="cb-select">
+                                <option value="true">Trong nhà</option>
+                                <option value="false">Ngoài trời</option>
+                            </select>
+                        </div>
+
+                        <div class="cb-field cb-field--full">
+                            <label asp-for="CourtForm.Surface" class="cb-field__label">Mặt sân</label>
+                            <input asp-for="CourtForm.Surface" class="cb-input" placeholder="VD: Thảm Acrylic Pro" required maxlength="100" />
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.BasePricePerHour" class="cb-field__label">Giá thường (VNĐ/h)</label>
+                            <input asp-for="CourtForm.BasePricePerHour" asp-format="{0:0}" type="number" min="1000" step="1000" class="cb-input cb-tabular" required />
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.PeakPricePerHour" class="cb-field__label">Giá giờ vàng (VNĐ/h)</label>
+                            <input asp-for="CourtForm.PeakPricePerHour" asp-format="{0:0}" type="number" min="1000" step="1000" class="cb-input cb-tabular" required />
+                        </div>
+
+                        <div class="cb-field">
+                            <label asp-for="CourtForm.DisplayOrder" class="cb-field__label">Thứ tự hiển thị</label>
+                            <input asp-for="CourtForm.DisplayOrder" type="number" min="1" class="cb-input cb-tabular" required />
+                        </div>
+
+                        <div class="cb-field cb-field--checkbox">
+                            <label class="cb-checkbox-label">
+                                <input asp-for="CourtForm.IsActive" type="checkbox" />
+                                <span>Đang mở hoạt động</span>
+                            </label>
+                        </div>
+
+                        <div class="cb-field cb-field--full">
+                            <button type="submit" class="cb-btn cb-btn--primary cb-btn--block">
+                                @(Model.IsEditingCourt ? "Lưu thay đổi" : "Thêm sân con")
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="cb-form-card" style="max-width:760px;">
+                <div class="cb-form-card__header">
+                    <h2 class="cb-form-card__title">Thông tin cụm sân · @selectedVenue.Name</h2>
+                    <span class="cb-badge @(selectedVenue.Status == VenueStatus.Active ? "cb-badge--active" : selectedVenue.Status == VenueStatus.PendingApproval ? "cb-badge--pending" : "cb-badge--suspended")">
+                        @(selectedVenue.Status == VenueStatus.Active ? "Đang hoạt động" : selectedVenue.Status == VenueStatus.PendingApproval ? "Chờ duyệt" : "Tạm khóa")
+                    </span>
+                </div>
+
+                <form method="post" asp-page-handler="UpdateVenue" class="cb-form-grid">
+                    <input type="hidden" name="VenueForm.Id" value="@selectedVenue.Id" />
+                    <input type="hidden" name="date" value="@selectedDateStr" />
+
+                    <div class="cb-field cb-field--full">
+                        <label asp-for="VenueForm.Name" class="cb-field__label">Tên cụm sân</label>
+                        <input asp-for="VenueForm.Name" class="cb-input" required maxlength="150" />
+                    </div>
+
+                    <div class="cb-field">
+                        <label asp-for="VenueForm.District" class="cb-field__label">Khu vực / Quận</label>
+                        <input asp-for="VenueForm.District" class="cb-input" required maxlength="100" />
+                    </div>
+
+                    <div class="cb-field">
+                        <label asp-for="VenueForm.PhoneNumber" class="cb-field__label">Số điện thoại liên hệ</label>
+                        <input asp-for="VenueForm.PhoneNumber" class="cb-input" type="tel" maxlength="25" />
+                    </div>
+
+                    <div class="cb-field cb-field--full">
+                        <label asp-for="VenueForm.Address" class="cb-field__label">Địa chỉ chi tiết</label>
+                        <input asp-for="VenueForm.Address" class="cb-input" required maxlength="250" />
+                    </div>
+
+                    <div class="cb-field">
+                        <label asp-for="VenueForm.OpenHour" class="cb-field__label">Giờ mở cửa</label>
+                        <input asp-for="VenueForm.OpenHour" type="number" min="5" max="22" class="cb-input cb-tabular" required />
+                    </div>
+
+                    <div class="cb-field">
+                        <label asp-for="VenueForm.CloseHour" class="cb-field__label">Giờ đóng cửa</label>
+                        <input asp-for="VenueForm.CloseHour" type="number" min="6" max="23" class="cb-input cb-tabular" required />
+                    </div>
+
+                    <div class="cb-field cb-field--full">
+                        <label asp-for="VenueForm.AccentColor" class="cb-field__label">Màu thẻ hiển thị trên sàn</label>
+                        <select asp-for="VenueForm.AccentColor" class="cb-select">
+                            <option value="emerald">Xanh lá (Emerald)</option>
+                            <option value="teal">Xanh ngọc (Teal)</option>
+                            <option value="blue">Xanh dương (Blue)</option>
+                            <option value="amber">Vàng ấm (Amber)</option>
+                        </select>
+                    </div>
+
+                    <div class="cb-field cb-field--full">
+                        <label asp-for="VenueForm.Description" class="cb-field__label">Mô tả cụm sân</label>
+                        <textarea asp-for="VenueForm.Description"
+                                  class="cb-input"
+                                  maxlength="600"
+                                  style="height:auto;min-height:92px;padding:10px 12px;resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="cb-field cb-field--full">
+                        <button type="submit" class="cb-btn cb-btn--primary">Lưu thông tin cụm sân</button>
+                    </div>
+                </form>
+            </div>
+        }
+    }
+</div>

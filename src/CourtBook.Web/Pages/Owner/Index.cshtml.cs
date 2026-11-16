@@ -1,0 +1,426 @@
+using System.Globalization;
+using CourtBook.BusinessObjects.Entities;
+using CourtBook.BusinessObjects.Enums;
+using CourtBook.Services.Interfaces;
+using CourtBook.Services.Models;
+using CourtBook.Web.Extensions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace CourtBook.Web.Pages.Owner;
+
+[Authorize(Roles = "CourtOwner,Admin")]
+public class IndexModel : PageModel
+{
+    private readonly IBookingService _bookingService;
+    private readonly IVenueService _venueService;
+    private readonly ICourtService _courtService;
+
+    public IndexModel(
+        IBookingService bookingService,
+        IVenueService venueService,
+        ICourtService courtService)
+    {
+        _bookingService = bookingService;
+        _venueService = venueService;
+        _courtService = courtService;
+    }
+
+    public OwnerPortalDto Portal { get; set; } = new();
+    public DateOnly SelectedDate { get; set; }
+    public string ActiveTab { get; set; } = "bookings";
+    public int? EditCourtId { get; set; }
+    public bool ShowNewVenueForm { get; set; }
+
+    public VenueUpsertDto VenueForm { get; set; } = CreateDefaultVenueForm();
+    public CourtUpsertDto CourtForm { get; set; } = new();
+
+    public bool IsEditingCourt => EditCourtId.HasValue && CourtForm.Id.HasValue;
+
+    public async Task<IActionResult> OnGetAsync(
+        int? venueId,
+        string? date,
+        string tab = "bookings",
+        int? editCourtId = null,
+        string? mode = null)
+    {
+        int? userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Challenge();
+        }
+
+        SelectedDate = ParseDateOrToday(date);
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            userId.Value,
+            User.IsAdmin(),
+            venueId,
+            SelectedDate,
+            HttpContext.RequestAborted);
+
+        ShowNewVenueForm = Portal.MyVenues.Count == 0
+            || string.Equals(mode, "newvenue", StringComparison.OrdinalIgnoreCase);
+
+        if (ShowNewVenueForm || Portal.SelectedVenue is null)
+        {
+            VenueForm = CreateDefaultVenueForm();
+            return Page();
+        }
+
+        ActiveTab = editCourtId.HasValue || string.Equals(tab, "courts", StringComparison.OrdinalIgnoreCase)
+            ? "courts"
+            : string.Equals(tab, "settings", StringComparison.OrdinalIgnoreCase)
+                ? "settings"
+                : "bookings";
+
+        Venue selectedVenue = Portal.SelectedVenue;
+        VenueForm = MapVenueForm(selectedVenue);
+
+        if (editCourtId.HasValue)
+        {
+            Court? court = Portal.VenueCourts.FirstOrDefault(c => c.Id == editCourtId.Value)
+                ?? await _courtService.GetByIdAsync(editCourtId.Value, HttpContext.RequestAborted);
+
+            if (court is not null && court.VenueId == selectedVenue.Id)
+            {
+                EditCourtId = court.Id;
+                CourtForm = new CourtUpsertDto
+                {
+                    Id = court.Id,
+                    VenueId = court.VenueId,
+                    Code = court.Code,
+                    Name = court.Name,
+                    SportType = court.SportType,
+                    IsIndoor = court.IsIndoor,
+                    Surface = court.Surface,
+                    BasePricePerHour = court.BasePricePerHour,
+                    PeakPricePerHour = court.PeakPricePerHour,
+                    IsActive = court.IsActive,
+                    DisplayOrder = court.DisplayOrder
+                };
+            }
+            else
+            {
+                TempData["ToastError"] = "Không tìm thấy thông tin sân cần chỉnh sửa.";
+                CourtForm = CreateDefaultCourtForm(selectedVenue.Id, Portal.VenueCourts.Count + 1);
+            }
+        }
+        else
+        {
+            CourtForm = CreateDefaultCourtForm(selectedVenue.Id, Portal.VenueCourts.Count + 1);
+        }
+
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostCreateVenueAsync(VenueUpsertDto venueForm)
+    {
+        int? userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Challenge();
+        }
+
+        NormalizeVenueForm(venueForm);
+
+        ServiceResult<Venue> result = await _venueService.CreateVenueAsync(
+            userId.Value,
+            User.IsAdmin(),
+            venueForm,
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded && result.Data is not null)
+        {
+            TempData["ToastSuccess"] = result.Data.Status == VenueStatus.Active
+                ? $"Đã tạo và mở hoạt động cụm sân {result.Data.Name}."
+                : "Đăng ký cụm sân thành công! Cụm sân đang chờ Quản trị sàn phê duyệt.";
+
+            return RedirectToPage("/Owner/Index", new { venueId = result.Data.Id });
+        }
+
+        TempData["ToastError"] = result.ErrorMessage ?? "Không thể đăng ký cụm sân mới.";
+        SelectedDate = GetVietnamToday();
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            userId.Value,
+            User.IsAdmin(),
+            null,
+            SelectedDate,
+            HttpContext.RequestAborted);
+        ShowNewVenueForm = true;
+        VenueForm = venueForm;
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostUpdateVenueAsync(VenueUpsertDto venueForm, string? date)
+    {
+        int? userId = User.GetUserId();
+        if (userId is null)
+        {
+            return Challenge();
+        }
+
+        SelectedDate = ParseDateOrToday(date);
+        string formattedDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        NormalizeVenueForm(venueForm);
+
+        ServiceResult<Venue> result = await _venueService.UpdateVenueAsync(
+            userId.Value,
+            User.IsAdmin(),
+            venueForm,
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded && result.Data is not null)
+        {
+            TempData["ToastSuccess"] = $"Đã cập nhật thông tin cụm sân {result.Data.Name}.";
+            return RedirectToPage("/Owner/Index", new
+            {
+                venueId = result.Data.Id,
+                date = formattedDate,
+                tab = "settings"
+            });
+        }
+
+        TempData["ToastError"] = result.ErrorMessage ?? "Không thể cập nhật thông tin cụm sân.";
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            userId.Value,
+            User.IsAdmin(),
+            venueForm.Id,
+            SelectedDate,
+            HttpContext.RequestAborted);
+        ActiveTab = "settings";
+        ShowNewVenueForm = false;
+        VenueForm = venueForm;
+        if (Portal.SelectedVenue is not null)
+        {
+            CourtForm = CreateDefaultCourtForm(Portal.SelectedVenue.Id, Portal.VenueCourts.Count + 1);
+        }
+
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostCheckInAsync(int bookingId, int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        UserRole actorRole = User.GetUserRole() ?? UserRole.CourtOwner;
+        ServiceResult<BookingTicketDto> result = await _bookingService.CheckInBookingAsync(
+            bookingId,
+            actorUserId.Value,
+            actorRole,
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded)
+        {
+            string code = result.Data?.BookingCode ?? "";
+            TempData["ToastSuccess"] = string.IsNullOrEmpty(code)
+                ? "Check-in thành công."
+                : $"Đã check-in đơn {code} thành công.";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể check-in đơn đặt sân này.";
+        }
+
+        return RedirectToPage("/Owner/Index", new
+        {
+            venueId,
+            date = ParseDateOrToday(date).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            tab = "bookings"
+        });
+    }
+
+    public async Task<IActionResult> OnPostCancelBookingAsync(int bookingId, int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        UserRole actorRole = User.GetUserRole() ?? UserRole.CourtOwner;
+        ServiceResult<BookingTicketDto> result = await _bookingService.CancelBookingAsync(
+            bookingId,
+            actorUserId.Value,
+            actorRole,
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded)
+        {
+            string code = result.Data?.BookingCode ?? "";
+            TempData["ToastSuccess"] = string.IsNullOrEmpty(code)
+                ? "Đã hủy đơn đặt sân thành công."
+                : $"Đã hủy đơn {code} thành công.";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể hủy đơn đặt sân này.";
+        }
+
+        return RedirectToPage("/Owner/Index", new
+        {
+            venueId,
+            date = ParseDateOrToday(date).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            tab = "bookings"
+        });
+    }
+
+    public async Task<IActionResult> OnPostToggleCourtAsync(int courtId, int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        ServiceResult<Court> result = await _courtService.ToggleActiveAsync(
+            actorUserId.Value,
+            User.IsAdmin(),
+            courtId,
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded && result.Data is not null)
+        {
+            string statusText = result.Data.IsActive ? "đã mở hoạt động" : "đã chuyển bảo trì";
+            TempData["ToastSuccess"] = $"{result.Data.Name} {statusText}.";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể cập nhật trạng thái sân.";
+        }
+
+        return RedirectToPage("/Owner/Index", new
+        {
+            venueId,
+            date = ParseDateOrToday(date).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            tab = "courts"
+        });
+    }
+
+    public async Task<IActionResult> OnPostSaveCourtAsync(CourtUpsertDto courtForm, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        SelectedDate = ParseDateOrToday(date);
+        string formattedDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        courtForm.Code = (courtForm.Code ?? string.Empty).Trim().ToUpperInvariant();
+        courtForm.Name = (courtForm.Name ?? string.Empty).Trim();
+        courtForm.Surface = (courtForm.Surface ?? string.Empty).Trim();
+
+        bool isUpdate = courtForm.Id.HasValue && courtForm.Id.Value > 0;
+        ServiceResult<Court> result = isUpdate
+            ? await _courtService.UpdateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted)
+            : await _courtService.CreateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted);
+
+        if (result.Succeeded && result.Data is not null)
+        {
+            TempData["ToastSuccess"] = isUpdate
+                ? $"Đã cập nhật sân {result.Data.Name}."
+                : $"Đã thêm sân mới {result.Data.Name}.";
+
+            return RedirectToPage("/Owner/Index", new
+            {
+                venueId = result.Data.VenueId,
+                date = formattedDate,
+                tab = "courts"
+            });
+        }
+
+        TempData["ToastError"] = result.ErrorMessage ?? "Không thể lưu thông tin sân.";
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            actorUserId.Value,
+            User.IsAdmin(),
+            courtForm.VenueId > 0 ? courtForm.VenueId : null,
+            SelectedDate,
+            HttpContext.RequestAborted);
+        ActiveTab = "courts";
+        ShowNewVenueForm = false;
+        EditCourtId = isUpdate ? courtForm.Id : null;
+        CourtForm = courtForm;
+        if (Portal.SelectedVenue is not null)
+        {
+            VenueForm = MapVenueForm(Portal.SelectedVenue);
+        }
+
+        return Page();
+    }
+
+    private static VenueUpsertDto CreateDefaultVenueForm() => new()
+    {
+        AccentColor = "emerald",
+        OpenHour = 6,
+        CloseHour = 22
+    };
+
+    private static VenueUpsertDto MapVenueForm(Venue venue) => new()
+    {
+        Id = venue.Id,
+        Name = venue.Name,
+        District = venue.District,
+        Address = venue.Address,
+        PhoneNumber = venue.PhoneNumber,
+        Description = venue.Description,
+        AccentColor = string.IsNullOrWhiteSpace(venue.AccentColor) ? "emerald" : venue.AccentColor,
+        OpenHour = venue.OpenHour,
+        CloseHour = venue.CloseHour
+    };
+
+    private static CourtUpsertDto CreateDefaultCourtForm(int venueId, int displayOrder) => new()
+    {
+        VenueId = venueId,
+        SportType = SportType.Pickleball,
+        IsIndoor = true,
+        BasePricePerHour = 130_000m,
+        PeakPricePerHour = 180_000m,
+        IsActive = true,
+        DisplayOrder = Math.Max(1, displayOrder)
+    };
+
+    private static void NormalizeVenueForm(VenueUpsertDto dto)
+    {
+        dto.Name = (dto.Name ?? string.Empty).Trim();
+        dto.District = (dto.District ?? string.Empty).Trim();
+        dto.Address = (dto.Address ?? string.Empty).Trim();
+        dto.PhoneNumber = (dto.PhoneNumber ?? string.Empty).Trim();
+        dto.Description = (dto.Description ?? string.Empty).Trim();
+        dto.AccentColor = string.IsNullOrWhiteSpace(dto.AccentColor) ? "emerald" : dto.AccentColor.Trim().ToLowerInvariant();
+    }
+
+    private static DateOnly ParseDateOrToday(string? date)
+    {
+        if (!string.IsNullOrWhiteSpace(date)
+            && DateOnly.TryParseExact(date.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsed))
+        {
+            return parsed;
+        }
+
+        return GetVietnamToday();
+    }
+
+    private static DateOnly GetVietnamToday()
+    {
+        foreach (string timeZoneId in new[] { "Asia/Ho_Chi_Minh", "SE Asia Standard Time" })
+        {
+            try
+            {
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+        }
+
+        return DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+    }
+}

@@ -1,173 +1,111 @@
-# SplitTrip — Nền tảng Lập Lịch Trình Nhóm, Tách Hóa Đơn AI & Tất Toán Công Nợ Tối Ưu VietQR
+# CourtBook — Sàn Đặt Sân Pickleball & Cầu Lông Đa Chủ Sân (Multi-Owner Marketplace)
 
-> **Đồ án môn học PRN222** — Xây dựng trên nền tảng **.NET 10.0**, **ASP.NET Core Razor Pages**, **Entity Framework Core 10 (SQL Server)**, **SignalR Real-time**, **BackgroundService**, **Google Gemini 2.5 Flash AI**, và **Napas VietQR**.
+**CourtBook** là nền tảng sàn thương mại điện tử đặt sân **Pickleball & Cầu lông** theo mô hình **Multi-Owner Venue Marketplace**, xây dựng bằng **ASP.NET Core Razor Pages (.NET 10)**, **SignalR** và **SQL Server 2022**.
 
----
-
-## 1. Giới thiệu tổng quan
-
-Khi đi du lịch theo nhóm, việc thống nhất lịch trình nhiều ngày, ghi chép hàng chục khoản chi tiêu ứng trước chéo nhau (homestay, vé xe, vé tham quan, ăn uống tách món kèm VAT/giảm giá) và đòi nợ sau chuyến đi thường gây nhầm lẫn và mất thời gian.
-
-**SplitTrip** giải quyết trọn vẹn vòng đời chuyến đi nhóm từ lúc lên kế hoạch đến khi tất toán hoàn tất `0đ`:
-- **Lập lịch trình cộng tác thời gian thực (`Live Itinerary`)**: Nhiều thành viên cùng thêm điểm đến, kéo-thả sắp xếp thứ tự giữa các ngày, bình chọn `Upvote`/`Downvote` trực tiếp qua `SignalR`, và nhờ **Gemini 2.5 Flash AI** gợi ý lịch trình theo ngân sách.
-- **Quản lý chi tiêu & Quét hóa đơn AI nhận món trực tiếp (`Smart Expenses`)**: Hỗ trợ 5 chế độ chia tiền (`Chia đều`, `Số tiền chính xác`, `Phần trăm %`, `Trọng số phần`, và `Tách món AI OCR`), kiểm soát sai lệch số học ở bước duyệt nháp (`DraftReview`) và mở bảng cho từng thành viên bấm nhận món mình đã ăn theo thời gian thực (`ClaimingOpen -> Locked`) với phân bổ `VAT/Phí + Giảm giá` theo tỷ lệ pro-rata chính xác từng đồng VNĐ.
-- **Tối ưu dòng tiền đồ thị `Min-Cash-Flow` & Tất toán `VietQR` (`Debt Settlement`)**: Gom toàn bộ nợ chéo phức tạp giữa `M` thành viên về tối đa `M - 1` giao dịch chuyển khoản, sinh mã QR ngân hàng Napas tự động điền sẵn số tiền & nội dung, xác nhận thanh toán 2 chiều (`MarkedPaid -> Confirmed / Disputed`) và tự động chuyển trạng thái chuyến đi sang `Completed` ngay khi toàn đoàn cân bằng `0đ`.
+Nền tảng hỗ trợ **3 vai trò độc lập (`Member`, `CourtOwner`, `Admin`)**:
+- **Người chơi (`Member`)**: khám phá các cụm sân đang hoạt động theo khu vực, môn thể thao và từ khóa; đặt chỗ theo ma trận lịch trực tuyến từng cụm sân (`/Venues/{id}`) với giữ chỗ tạm thời 2 phút qua SignalR và quản lý vé tại `/MyBookings`.
+- **Chủ cụm sân (`CourtOwner`)**: tự đăng ký tài khoản đối tác (`/Account/Register?owner=true`), tạo & quản lý nhiều cụm sân, cấu hình sân con (giá thường / giờ vàng, bảo trì), check-in & hủy đơn riêng cho các cụm sân thuộc quyền sở hữu tại `/Owner` với cơ chế **cô lập dữ liệu theo chủ sở hữu (tenant isolation)**.
+- **Quản trị sàn (`Admin`)**: phê duyệt cụm sân mới (`PendingApproval` → `Active`), tạm khóa/mở lại cụm sân (`Suspended` ↔ `Active`), quản lý tài khoản người dùng và theo dõi GMV toàn sàn tại `/Admin`.
 
 ---
 
-## 2. Kiến trúc phân tầng chuẩn PRN222 (5-Layer Architecture)
+## 1. Kiến trúc 5 tầng (5-Layer PRN222 Architecture)
 
-Dự án tuân thủ nghiêm ngặt kiến trúc **5 tầng tách biệt** của học phần PRN222 (cùng dự án kiểm thử tự động `xUnit`):
+Solution [`CourtBook.sln`](CourtBook.sln) được tổ chức theo kiến trúc 5 tầng chuẩn PRN222 cùng bộ kiểm thử tự động xUnit:
 
-```text
-SplitTrip.sln
-├── src/
-│   ├── SplitTrip.Web                 [Presentation Layer]
-│   │   ├── Pages/                    Razor Pages (Account, Trips, Itinerary, Expenses, Settlement, Admin)
-│   │   ├── Hubs/                     Partial SignalR Hub (TripHub.cs, .Itinerary.cs, .Expenses.cs, .Settlement.cs)
-│   │   ├── Workers/                  BackgroundService (DepartureReminderWorker, TripSettlementWorker)
-│   │   └── Extensions/               Module DI Wiring (*ModuleExtensions.cs)
-│   │         │ (chỉ tham chiếu Services & BusinessObjects — KHÔNG tham chiếu DataAccessObjects)
-│   │         ▼
-│   ├── SplitTrip.Services            [Business Logic Layer]
-│   │   ├── Auth/, Trips/             Xác thực BCrypt, Admin cấu hình, Sổ cái NetBalance, Guard rời nhóm
-│   │   ├── Itinerary/                Quản lý lịch trình, bình chọn, GeminiTripPlannerService (+ Smart Fallback)
-│   │   ├── Expenses/                 ExpenseSplitCalculator (Largest-Remainder VNĐ), GeminiReceiptScannerService
-│   │   ├── Settlements/              MinCashFlowService, VietQrService, SettlementService, AdminAnalyticsService
-│   │   └── Seed/                     DemoDataSeeder (tự động tạo chuyến đi mẫu Đà Lạt 3N2Đ idempotent)
-│   │         ▼
-│   ├── SplitTrip.Repositories        [Repository Layer]
-│   │   └── Interfaces & Implementations cô lập hoàn toàn truy vấn dữ liệu khỏi tầng nghiệp vụ
-│   │         ▼
-│   ├── SplitTrip.DataAccessObjects   [Data Access Layer]
-│   │   ├── SplitTripDbContext.cs     EF Core 10 SQL Server, decimal(18,0) VNĐ, DeleteBehavior.Restrict
-│   │   ├── Daos/                     Các lớp DAO bất đồng bộ theo từng phân hệ
-│   │   └── Migrations/               EF Core InitialCreate Migration
-│   │         ▼
-│   └── SplitTrip.BusinessObjects     [Domain / Entity Layer]
-│       ├── Entities/                 12 POCO Entities thuần (0 phụ thuộc NuGet ngoài)
-│       ├── Enums/                    8 Domain Enums (TripStatus, ExpenseSplitMode, ReceiptScanStatus, ...)
-│       └── Options/                  Strongly-typed Options (AdminAccountOptions, GeminiOptions)
-│
-├── database/
-│   └── SplitTrip_Schema.sql          Script SQL khởi tạo CSDL SQL Server idempotent
-└── tests/
-    └── SplitTrip.Tests               55 bài kiểm thử đơn vị & tích hợp xuyên phân hệ (xUnit)
+| Tầng | Dự án | Trách nhiệm chính |
+| :--- | :--- | :--- |
+| **Layer 1: BusinessObjects** | `src/CourtBook.BusinessObjects` | Entities (`AppUser`, `Venue`, `Court`, `Booking`), Enums (`UserRole`, `VenueStatus`, `SportType`, `BookingStatus`), giờ hoạt động (`Venue.GetOperatingHours`), tính giá giờ thường / giờ vàng (`Court.IsPeakHour`, `Court.GetPriceForHour`) và PBKDF2 hashing (`PasswordHelper`). |
+| **Layer 2: DataAccessObjects** | `src/CourtBook.DataAccessObjects` | `CourtBookDbContext` (EF Core 10 + SQL Server), Migration `InitialMultiOwnerCourtBook` (`Migrations/`), các DAO (`UserDao`, `VenueDao`, `CourtDao`, `BookingDao` với `TryAddSlotAsync`), và `DbInitializer` (tự động migrate & seed dữ liệu Multi-Owner). |
+| **Layer 3: Repositories** | `src/CourtBook.Repositories` | Các interface (`IUserRepository`, `IVenueRepository`, `ICourtRepository`, `IBookingRepository`) và implementation bọc DAO phục vụ Dependency Injection & Unit Testing. |
+| **Layer 4: Services** | `src/CourtBook.Services` | Business logic, DTO và kiểm soát phân quyền theo chủ sân (`AuthService`, `VenueService`, `CourtService`, `BookingService`, `PlatformAdminService`), khóa đồng bộ slot (`SemaphoreSlim`), tự động nhả giữ chỗ hết hạn, phát sự kiện real-time qua `ISlotRealtimeNotifier`. |
+| **Layer 5: Presentation (Web)** | `src/CourtBook.Web` | Razor Pages (`Index`, `Venues/Details`, `MyBookings/Index`, `Owner/Index`, `Admin/Index`, `Account/*`), SignalR Hub (`/hubs/court`), `SignalRSlotRealtimeNotifier`, `ExpiredHoldCleanupWorker`, Cookie Auth, CSS & JS client (`wwwroot/js/courtbook.js`). |
+| **Tests** | `tests/CourtBook.Tests` | **25 kiểm thử tự động xUnit** bao phủ `DbInitializer`, đăng ký/đăng nhập theo vai trò, bộ lọc marketplace, vòng đời duyệt cụm sân, cô lập dữ liệu chéo chủ sân (`CourtOwner` tenant isolation), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, bảo toàn `DateTimeKind.Utc` và KPI toàn sàn. |
+
+---
+
+## 2. Yêu cầu môi trường & Thiết lập Docker SQL Server
+
+### Yêu cầu
+- [.NET 10 SDK](https://dotnet.microsoft.com/) (`10.0.x`)
+- Docker Desktop / Docker Engine (để chạy SQL Server 2022)
+- Node.js (tùy chọn, để kiểm tra cú pháp `courtbook.js`)
+- EF Core CLI (`dotnet-ef`, nếu cần chạy lệnh migration thủ công)
+
+### Bước 1: Khởi động SQL Server 2022 bằng Docker
+```bash
+docker compose up -d
+```
+Cấu hình trong [`docker-compose.yml`](docker-compose.yml):
+- **Container:** `courtbook-sqlserver` (`mcr.microsoft.com/mssql/server:2022-latest`)
+- **Host / Port:** `127.0.0.1:1433`
+- **Database:** `CourtBookDb` (tự động tạo & migrate khi khởi động ứng dụng)
+- **Tài khoản `sa`:** `CourtBook@2026!`
+
+Script SQL idempotent của schema v2 được xuất sẵn tại [`database/CourtBook_Schema.sql`](database/CourtBook_Schema.sql), tương ứng với migration `InitialMultiOwnerCourtBook` trong `src/CourtBook.DataAccessObjects/Migrations/`. Nếu cần cập nhật database thủ công bằng EF Core CLI:
+```bash
+dotnet ef database update --project src/CourtBook.DataAccessObjects --startup-project src/CourtBook.Web
 ```
 
 ---
 
-## 3. Điểm nhấn kỹ thuật nổi bật
+## 3. Build, Kiểm thử & Chạy ứng dụng
 
-| Hạng mục PRN222 | Triển khai thực tế trong SplitTrip |
-|---|---|
-| **SignalR Real-time (`TripHub`)** | Thiết kế `public partial class TripHub : Hub` quản lý phòng `trip:{tripId}` và kênh cá nhân `user:{userId}`. Mọi thao tác kéo-thả lịch trình, bình chọn, bấm nhận món BBQ, đánh dấu đã chuyển khoản/xác nhận nhận tiền đều cập nhật tức thì trên mọi trình duyệt đang mở. |
-| **Background Workers (`IHostedService`)** | 1. **`DepartureReminderWorker`**: Quét mỗi 60 giây tìm hoạt động sắp diễn ra trong vòng `30 phút` tới (giờ Việt Nam `UTC+07:00`), gửi thông báo real-time và đóng dấu `ReminderSentAtUtc` chống gửi lặp.<br/>2. **`TripSettlementWorker`**: Tự động chuyển chuyến đi `Ongoing` đã qua `EndDate` sang `Settling` kèm sinh phác đồ `Min-Cash-Flow`, đồng thời nhắc nợ quá hạn mỗi `24 giờ` qua `LastNudgedAtUtc`. |
-| **Thuật toán `Min-Cash-Flow` & Số nguyên VNĐ** | Tiền tệ lưu trữ chuẩn `decimal(18, 0)` (nguyên đồng VNĐ). `ExpenseSplitCalculator` dùng thuật toán **Largest-Remainder** bảo toàn tuyệt đối `∑ OwedAmount == TotalAmount` trên cả 5 chế độ chia. `MinCashFlowService` khử nợ vòng tròn, giảm tới 50%–75% số lần chuyển khoản ngân hàng. |
-| **AI Đa phương thức (`Gemini 2.5 Flash`)** | Tích hợp REST `gemini-2.5-flash` cho **AI Trip Planner** (sinh JSON lịch trình theo điểm đến/ngân sách) và **AI Receipt Vision OCR** (đọc ảnh hóa đơn `JPG`/`PNG`/`WEBP`, phát hiện lệch `Tạm tính + VAT - Giảm giá ≠ Tổng cộng`). Có sẵn **Smart Demo Fallback** tiếng Việt hoạt động ngay cả khi để trống `Gemini:ApiKey`. |
-| **Napas VietQR & Bắt tay 2 bước** | Sinh URL `img.vietqr.io` chuẩn `compact2` tự động gắn mã BIN ngân hàng Việt Nam (`VCB`, `TCB`, `MB`, `ACB`, `BIDV`...), số tiền và nội dung chuyển khoản chuẩn hóa không dấu. Chỉ giao dịch đã được người nhận bấm `Confirmed` mới trừ vào công nợ gốc. |
+```bash
+# 1. Build toàn bộ solution (Release)
+dotnet build CourtBook.sln --configuration Release
 
----
+# 2. Chạy toàn bộ 25 unit tests (xUnit)
+dotnet test CourtBook.sln --configuration Release
 
-## 4. Cài đặt & Khởi chạy nhanh (Quick Start)
+# 3. Kiểm tra cú pháp JavaScript client (tùy chọn)
+node --check src/CourtBook.Web/wwwroot/js/courtbook.js
 
-### Yêu cầu môi trường
-- **.NET SDK 10.0** trở lên (`dotnet --version`)
-- **SQL Server LocalDB** (`(localdb)\mssqllocaldb` — đi kèm Visual Studio / SQL Server Express) hoặc SQL Server bất kỳ
-
-### Chạy ngay trong 2 lệnh
-Từ thư mục gốc của repository (`SplitTrip.sln`):
-
-```powershell
-# 1. Biên dịch & chạy toàn bộ 55 bài kiểm thử tự động (Release)
-dotnet test SplitTrip.sln --configuration Release
-
-# 2. Khởi chạy ứng dụng Web (tự động chạy EF Migration + nạp dữ liệu mẫu Đà Lạt 3N2Đ nếu DB trống)
-dotnet run --project src/SplitTrip.Web
+# 4. Khởi chạy Web App (tự động migrate + seed 5 users, 4 venues, 18 courts, 8 bookings)
+dotnet run --project src/CourtBook.Web/CourtBook.Web.csproj
 ```
 
-Sau khi chạy, mở trình duyệt tại địa chỉ hiển thị trên terminal:
-- **HTTP**: `http://localhost:5044`
-- **HTTPS** (`dotnet run --project src/SplitTrip.Web --launch-profile https`): `https://localhost:7112`
-
-### Khởi tạo CSDL thủ công qua SQL Script (Tùy chọn)
-Nếu sử dụng SQL Server Management Studio (SSMS) thay vì LocalDB mặc định:
-1. Chạy script idempotent tại [`database/SplitTrip_Schema.sql`](database/SplitTrip_Schema.sql) trên database đích.
-2. Cập nhật `ConnectionStrings:DefaultConnection` trong `src/SplitTrip.Web/appsettings.Development.json` (hoặc User Secrets).
-3. Khi khởi động lần đầu với bảng `Users` trống, `DemoDataSeeder` vẫn tự động tạo sẵn 4 tài khoản mẫu và chuyến đi **Đà Lạt Săn Mây 3N2Đ**.
+Sau khi chạy, mở trình duyệt tại URL hiển thị trên terminal (mặc định `http://localhost:5000` nếu không chỉ định `--urls`, hoặc truyền `--urls http://127.0.0.1:5050` tùy chọn).
 
 ---
 
-## 5. Cấu hình Google Gemini API Key (Tùy chọn)
+## 4. Dữ liệu Seed & Tài khoản Demo (1-Click Demo Login)
 
-Mặc định `Gemini:ApiKey` trong [`src/SplitTrip.Web/appsettings.json`](src/SplitTrip.Web/appsettings.json) được để trống (`""`) để đảm bảo **không lưu khóa bí mật trong Git**. Khi chưa cấu hình khóa, cả **AI Trip Planner** và **AI Receipt OCR** đều tự động chuyển sang chế độ **Smart Demo Fallback** tiếng Việt để demo trơn tru không phụ thuộc mạng ngoài.
+Khi khởi chạy trên database trống, `DbInitializer.InitializeAsync` tự động seed **5 tài khoản**, **4 cụm sân** (**18 sân con**) và **8 đơn đặt sân mẫu**. Tại `/Account/Login`, có thể bấm trực tiếp nút **Đăng nhập nhanh 1 chạm** được phân nhóm theo vai trò:
 
-Để kích hoạt gọi trực tiếp mô hình `gemini-2.5-flash` thật của Google AI Studio, cấu hình qua `.NET User Secrets`:
+### Tài khoản Demo (5 tài khoản · 3 vai trò)
 
-```powershell
-dotnet user-secrets init --project src/SplitTrip.Web
-dotnet user-secrets set "Gemini:ApiKey" "AIzaSy_YOUR_GEMINI_API_KEY" --project src/SplitTrip.Web
-```
+| Vai trò (`UserRole`) | Họ tên | Email | Mật khẩu | Phạm vi & Quyền hạn |
+| :--- | :--- | :--- | :--- | :--- |
+| **Member** (`1`) | Nguyễn Văn An | `an@courtbook.vn` | `User@123` | Khám phá sân, giữ chỗ & đặt sân tại `/Venues/{id}`, xem/hủy vé tại `/MyBookings` |
+| **Member** (`1`) | Trần Thị Bình | `binh@courtbook.vn` | `User@123` | Khám phá sân, giữ chỗ & đặt sân (dùng mở tab thứ 2 test SignalR real-time) |
+| **CourtOwner** (`2`) | Lê Minh Khôi | `khoi.owner@courtbook.vn` | `Owner@123` | Quản lý 2 cụm sân tại `/Owner`: `Thảo Điền Racquet Club` & `Sala Riverside Pickleball` |
+| **CourtOwner** (`2`) | Phạm Thu Hà | `ha.owner@courtbook.vn` | `Owner@123` | Quản lý 2 cụm sân tại `/Owner`: `Phú Mỹ Hưng Sport Center` & `Tân Bình Arena` |
+| **Admin** (`3`) | Quản trị sàn CourtBook | `admin@courtbook.vn` | `Admin@123` | Quản trị toàn sàn tại `/Admin`: duyệt/tạm khóa/mở lại cụm sân, quản lý tài khoản & GMV |
 
-Hoặc đặt biến môi trường trong phiên PowerShell hiện tại:
+### Danh sách Cụm sân được Seed (4 cụm sân · 18 sân con)
 
-```powershell
-$env:Gemini__ApiKey = "AIzaSy_YOUR_GEMINI_API_KEY"
-dotnet run --project src/SplitTrip.Web
-```
-
----
-
-## 6. Tài khoản Demo & Dữ liệu mẫu có sẵn
-
-Trang `/Account/Login` tích hợp sẵn các nút **Điền nhanh tài khoản Demo (1-click)** để giảng viên và nhóm bảo vệ đăng nhập tức thì:
-
-| Vai trò | Email | Mật khẩu | Ngân hàng VietQR đã cấu hình | Ghi chú trong dữ liệu mẫu |
-|---|---|---|---|---|
-| **System Admin** | `admin@splittrip.vn` | `Admin@123` | *(Tài khoản cấu hình `appsettings.json`)* | Truy cập trang thống kê toàn hệ thống `/Admin` |
-| **Trưởng đoàn (Owner)** | `an@splittrip.vn` | `User@123` | Vietcombank (`970436`) — `1029384756` | Chủ chuyến **Đà Lạt Săn Mây 3N2Đ** (`DALAT3N2`), ứng tiền Homestay & BBQ |
-| **Thành viên** | `binh@splittrip.vn` | `User@123` | Techcombank (`970407`) — `19038475621018` | Ứng tiền vé xe Limousine khứ hồi (`Equal`) |
-| **Thành viên** | `chi@splittrip.vn` | `User@123` | MB Bank (`970422`) — `0987654321` | Ứng tiền combo săn mây & chèo SUP (`Percentage`) |
-| **Thành viên** | `dung@splittrip.vn` | `User@123` | ACB (`970416`) — `23456789` | Ứng tiền cà phê Túi Mơ To (`ExactAmount`) |
-
-> **Chuyến đi mẫu có sẵn**: `"Đà Lạt Săn Mây 3N2Đ"` (Mã mời: `DALAT3N2`, trạng thái `Ongoing`) gồm **3 ngày lịch trình** (8 địa điểm + bình chọn), **4 khoản chi đa chế độ** tạo nợ vòng tròn giữa cả 4 thành viên, và **1 hóa đơn BBQ (`ClaimingOpen`)** còn 2 món chưa nhận để trình diễn nhận món trực tiếp!
+| ID | Tên cụm sân | Khu vực | Chủ sân | Trạng thái | Số sân con |
+| :-: | :--- | :--- | :--- | :--- | :--- |
+| `1` | **Thảo Điền Racquet Club** | TP. Thủ Đức | Lê Minh Khôi | `Active` | 6 sân (4 Pickleball, 2 Cầu lông) |
+| `2` | **Sala Riverside Pickleball** | TP. Thủ Đức | Lê Minh Khôi | `Active` | 4 sân (4 Pickleball) |
+| `3` | **Phú Mỹ Hưng Sport Center** | Quận 7 | Phạm Thu Hà | `Active` | 5 sân (2 Pickleball, 3 Cầu lông) |
+| `4` | **Tân Bình Arena** | Quận Tân Bình | Phạm Thu Hà | `PendingApproval` | 3 sân (3 Pickleball — ẩn khỏi `/` cho tới khi Admin duyệt) |
 
 ---
 
-## 7. Kịch bản Demo Bảo Vệ Đồ Án PRN222 trong 3 Phút (2 Trình Duyệt Song Song)
+## 5. SignalR Cô Lập Theo Cụm Sân & Bảo Toàn Đa Chủ Sở Hữu
 
-Mở **2 cửa sổ trình duyệt đặt cạnh nhau** (Cửa sổ Trái = Trình duyệt thường; Cửa sổ Phải = Cửa sổ Ẩn danh / Incognito) cùng truy cập `http://localhost:5044/Account/Login`:
-
-### Phút 1 (`0:00 – 1:00`): Đăng nhập 1-Click & Cộng tác Lịch trình Real-time (`SignalR` + `AI`)
-1. **Cửa sổ Trái**: Bấm badge **`An (Owner)`** -> Đăng nhập. **Cửa sổ Phải**: Bấm badge **`Bình`** -> Đăng nhập.
-2. Cả hai cùng bấm vào chuyến đi **"Đà Lạt Săn Mây 3N2Đ"** -> chuyển sang tab **Lịch trình (`/Trips/Itinerary`)**.
-3. Trên **Cửa sổ Phải (Bình)**: Bấm bình chọn `Upvote` hoặc kéo-thả đổi vị trí một điểm tham quan -> quan sát **Cửa sổ Trái (An)** tự động nhảy điểm bình chọn và cập nhật thứ tự tức thì qua `SignalR` mà không cần F5.
-4. *(Tùy chọn)* Bấm **Gợi ý lịch trình bằng AI** để xem `GeminiTripPlannerService` tạo gợi ý điểm đến kèm chi phí dự kiến.
-
-### Phút 2 (`1:00 – 2:00`): Quét Hóa đơn AI & Bấm Nhận Món Ăn Trực Tiếp (`Pro-Rata VAT/Discount`)
-1. Cả hai chuyển sang tab **Chi tiêu (`/Trips/Expenses`)** -> bấm mở hóa đơn **"Tiệc nướng BBQ Tiệm Nướng Thương Thương"** đang ở trạng thái **`Đang mở chọn món` (`ClaimingOpen`)**.
-2. **Cửa sổ Phải (Bình)** bấm nhận món *"Lẩu gà lá é nấm rừng"* (`220.000đ`) và **Cửa sổ Trái (An)** cùng bấm nhận chung món *"Lẩu gà lá é"* + *"Trà đào cam sả"* (`40.000đ`).
-3. Chỉ rõ trên màn hình: Avatar người nhận món và bảng **Số tiền thực trả (đã cộng VAT 8% và trừ giảm giá theo tỷ lệ pro-rata)** nhảy đồng bộ ngay lập tức trên cả 2 cửa sổ với tổng đối soát khớp đúng `1.000.000đ`.
-4. Trên **Cửa sổ Trái (An - Owner)**: Khi tất cả 5/5 món đã có người nhận, bấm **Khóa & Chốt hóa đơn (`Locked`)**.
-
-### Phút 3 (`2:00 – 3:00`): Tối ưu Nợ `Min-Cash-Flow`, Mã `VietQR` & Dashboard `Admin`
-1. Trên **Cửa sổ Trái (An)**: Quay lại tổng quan chuyến đi bấm **Chuyển sang Tất toán (`Ongoing -> Settling`)**, sau đó cả hai mở tab **Tất toán (`/Trips/Settlement`)**.
-2. Trình bày chỉ số **Tối ưu dòng tiền `Min-Cash-Flow`**: Từ hàng chục nghĩa vụ nợ chéo giữa 4 thành viên được rút gọn còn tối đa **3 lệnh chuyển khoản** bảo toàn tổng số dư bằng `0đ`.
-3. Trên **Cửa sổ Phải (người nợ)**: Bấm ** Thanh toán VietQR** để mở mã QR Napas tự động điền số tài khoản & nội dung -> bấm **Đánh dấu đã chuyển tiền (`MarkedPaid`)**.
-4. Trên **Cửa sổ Trái (người nhận)**: Nhận thông báo real-time -> bấm **Xác nhận đã nhận tiền (`Confirmed`)**. Khi giao dịch cuối cùng được xác nhận, chuyến đi tự động chuyển sang **`Hoàn tất` (`Completed`)**!
-5. Đăng xuất 1 cửa sổ, bấm badge **`Admin`** trên `/Account/Login` -> mở **`/Admin`** để trình chiếu Dashboard thống kê tổng chi tiêu theo danh mục, tỷ lệ áp dụng AI OCR/Planner và hiệu suất cắt giảm giao dịch `Min-Cash-Flow` toàn hệ thống.
-
----
-
-## 8. Các lệnh kiểm thử hữu ích
-
-```powershell
-# Chạy toàn bộ unit tests & end-to-end integration tests
-dotnet test SplitTrip.sln --configuration Release
-
-# Chỉ chạy kịch bản kiểm thử tích hợp xuyên phân hệ (Wave 3 E2E)
-dotnet test SplitTrip.sln --filter "FullyQualifiedName~Integration"
-
-# Kiểm tra biên dịch nghiêm ngặt 0 cảnh báo / 0 lỗi
-dotnet build SplitTrip.sln --configuration Release
-```
+1. **Cô lập SignalR theo từng cụm sân (`venue-{venueId}`):**
+   - Hub `/hubs/court` (`CourtHub`) cung cấp `JoinVenueGroup(int venueId)` và `LeaveVenueGroup(int venueId)`.
+   - Khi người chơi mở trang lịch `/Venues/{id}`, `courtbook.js` tự động tham gia nhóm `venue-{venueId}` sau khi kết nối và tái kết nối (`onreconnected`).
+   - `SignalRSlotRealtimeNotifier` chỉ phát `SlotUpdated`, `SlotsUpdated` và `CourtStatusChanged` tới đúng nhóm `Clients.Group($"venue-{venueId}")` — thay đổi ở cụm sân này không làm nhiễu client đang xem cụm sân khác.
+2. **Giữ chỗ tạm thời (2 phút), chống Double-Booking & Tự động nhả slot:**
+   - Khung giờ mở cửa theo từng cụm sân (`5 <= OpenHour < CloseHour <= 23`, tối thiểu 4 giờ, mặc định `06:00 - 22:00`); **Giờ vàng (17:00 - 21:00)** áp dụng `PeakPricePerHour`.
+   - Người chơi click ô trống trên `/Venues/{id}` → gửi `POST /Venues/{id}?handler=ToggleHold` kèm Anti-Forgery Token.
+   - Tối đa **6 giữ chỗ đồng thời / người chơi / cụm sân** (`MaxActiveHoldsPerUser = 6`), khóa đồng thời bằng `SemaphoreSlim` ở tầng Service và bảo vệ tuyệt đối ở tầng SQL Server bằng **Filtered Unique Index** `[IX_Bookings_CourtId_PlayDate_StartHour]` trên `(CourtId, PlayDate, StartHour) WHERE [Status] IN (1, 2, 3)`.
+   - Mã sân `Code` là duy nhất trong phạm vi từng cụm sân qua composite unique index `(VenueId, Code)` — cho phép hai chủ sân khác nhau đều có mã sân `PB-01`.
+   - `ExpiredHoldCleanupWorker` chạy nền định kỳ mỗi **10 giây** gọi `ReleaseExpiredHoldsAsync()` để chuyển các giữ chỗ quá hạn sang `Expired = 5` và phát `SlotsUpdated` theo từng `venueId`.
+3. **Bảo vệ ranh giới đa chủ sân (Multi-Owner Tenant Isolation):**
+   - Mọi thao tác tại `VenueService`, `CourtService` và `BookingService` (cập nhật cụm sân, thêm/sửa/bảo trì sân con, check-in, hủy đơn của khách) đều kiểm tra `venue.OwnerId == actorUserId || isAdmin`. Chủ sân A không thể xem danh sách thao tác hoặc gửi POST chỉnh sửa cụm sân/sân/đơn của chủ sân B.
+   - Các cụm sân mới do `CourtOwner` tạo ở trạng thái `PendingApproval`, chỉ hiển thị công khai trên `/` và cho phép đặt sân tại `/Venues/{id}` sau khi `Admin` phê duyệt (`Active`).

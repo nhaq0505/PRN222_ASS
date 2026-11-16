@@ -1,0 +1,251 @@
+@page "/Venues/{id:int}"
+@model CourtBook.Web.Pages.Venues.DetailsModel
+@using System.Globalization
+@using CourtBook.BusinessObjects.Entities
+@{
+    ViewData["Title"] = Model.Matrix.VenueName;
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    string selectedDateStr = Model.Matrix.PlayDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}
+
+<div id="scheduleApp"
+     class="cb-container"
+     data-venue-id="@Model.Matrix.VenueId"
+     data-play-date="@selectedDateStr"
+     data-current-user-id="@(Model.CurrentUserId?.ToString() ?? "")"
+     data-is-authenticated="@(User.Identity?.IsAuthenticated == true ? "true" : "false")"
+     data-toggle-url="/Venues/@Model.Matrix.VenueId?handler=ToggleHold"
+     data-myholds-url="/Venues/@Model.Matrix.VenueId?handler=MyHolds">
+
+    <form id="antiForgeryForm" method="post" hidden>
+        @Html.AntiForgeryToken()
+    </form>
+
+    <div class="cb-breadcrumb">
+        <a href="/">← Tất cả cụm sân</a>
+        <span>·</span>
+        <span>@Model.Matrix.VenueDistrict</span>
+    </div>
+
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">@Model.Matrix.VenueName</h1>
+            <p class="cb-page-subtitle">@Model.Matrix.VenueAddress · Chủ sân: @Model.Matrix.OwnerName · Giờ vàng 17:00 - 21:00</p>
+        </div>
+
+        <nav class="cb-segmented" aria-label="Lọc theo môn thể thao">
+            <a class="cb-segmented__item @(!Model.SportFilter.HasValue ? "is-active" : "")"
+               href="/Venues/@Model.Matrix.VenueId?date=@selectedDateStr">Tất cả</a>
+            <a class="cb-segmented__item @(Model.SportFilter == SportType.Pickleball ? "is-active" : "")"
+               href="/Venues/@Model.Matrix.VenueId?date=@selectedDateStr&sport=@SportType.Pickleball">Pickleball</a>
+            <a class="cb-segmented__item @(Model.SportFilter == SportType.Badminton ? "is-active" : "")"
+               href="/Venues/@Model.Matrix.VenueId?date=@selectedDateStr&sport=@SportType.Badminton">Cầu lông</a>
+        </nav>
+    </div>
+
+    <div class="cb-toolbar">
+        <div class="cb-date-strip" role="navigation" aria-label="Chọn ngày đặt sân">
+            @foreach (CourtBook.Web.Pages.Venues.DetailsModel.DayTileViewModel d in Model.Days)
+            {
+                <a class="cb-date-tile @(d.IsSelected ? "is-active" : "")"
+                   href="/Venues/@Model.Matrix.VenueId?date=@d.UrlDate@(Model.SportFilter.HasValue ? $"&sport={Model.SportFilter}" : "")">
+                    <span class="cb-date-tile__dow">@d.DayOfWeekLabel</span>
+                    <span class="cb-date-tile__day">@d.DayMonthLabel</span>
+                </a>
+            }
+        </div>
+
+        <div class="cb-legend" aria-label="Chú thích trạng thái">
+            <span class="cb-legend__item">
+                <span class="cb-legend__dot cb-legend__dot--available"></span>Trống
+            </span>
+            <span class="cb-legend__item">
+                <span class="cb-legend__dot cb-legend__dot--held-me"></span>Bạn đang chọn
+            </span>
+            <span class="cb-legend__item">
+                <span class="cb-legend__dot cb-legend__dot--held-other"></span>Đang giữ chỗ
+            </span>
+            <span class="cb-legend__item">
+                <span class="cb-legend__dot cb-legend__dot--booked"></span>Đã đặt
+            </span>
+        </div>
+    </div>
+
+    <div class="cb-matrix-card">
+        @if (Model.Matrix.Courts.Count == 0)
+        {
+            <div class="cb-empty-state">
+                <h3>Chưa có sân phù hợp</h3>
+                <p>Không tìm thấy sân nào khớp với bộ lọc hiện tại tại @Model.Matrix.VenueName.</p>
+                <a class="cb-btn cb-btn--outline cb-btn--sm" href="/Venues/@Model.Matrix.VenueId?date=@selectedDateStr">Xem tất cả sân</a>
+            </div>
+        }
+        else
+        {
+            <div class="cb-matrix-scroll">
+                <table class="cb-matrix-table">
+                    <thead>
+                        <tr>
+                            <th class="cb-court-cell">Sân</th>
+                            @foreach (int hour in Model.Matrix.Hours)
+                            {
+                                bool isPeak = Court.IsPeakHour(hour);
+                                <th class="@(isPeak ? "is-peak" : "")" title="@(isPeak ? $"{hour:D2}:00 · Giờ vàng" : $"{hour:D2}:00")">
+                                    <span>@($"{hour:D2}:00")</span>
+                                    @if (isPeak)
+                                    {
+                                        <span class="cb-peak-dot" title="Giờ vàng 17:00 - 21:00"></span>
+                                    }
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (CourtRowDto court in Model.Matrix.Courts)
+                        {
+                            string sportBadgeClass = court.SportType == SportType.Pickleball
+                                ? "cb-badge--pickleball"
+                                : "cb-badge--badminton";
+                            string sportLabel = court.SportType == SportType.Pickleball
+                                ? "Pickleball"
+                                : "Cầu lông";
+                            string venueLabel = court.IsIndoor ? "Trong nhà" : "Ngoài trời";
+                            string caption = $"{venueLabel} · {court.BasePricePerHour / 1000:0}k / {court.PeakPricePerHour / 1000:0}k";
+                            <tr>
+                                <td class="cb-court-cell">
+                                    <div class="cb-court-cell__head">
+                                        <span class="cb-court-cell__name">@court.Name</span>
+                                        <span class="cb-badge @sportBadgeClass">@sportLabel</span>
+                                    </div>
+                                    <div class="cb-court-cell__meta">
+                                        <span>@caption</span>
+                                        @if (!court.IsActive)
+                                        {
+                                            <span class="cb-badge cb-badge--maintenance">Bảo trì</span>
+                                        }
+                                    </div>
+                                </td>
+                                @foreach (SlotCellDto slot in court.Slots)
+                                {
+                                    bool canInteract = slot.State is SlotVisualState.Available or SlotVisualState.HeldByMe;
+                                    <td>
+                                        <button type="button"
+                                                class="cb-slot @GetSlotClass(slot.State)"
+                                                data-slot-cell
+                                                data-court-id="@slot.CourtId"
+                                                data-start-hour="@slot.StartHour"
+                                                data-price="@slot.PriceVnd.ToString("0", CultureInfo.InvariantCulture)"
+                                                data-state="@slot.State"
+                                                data-peak="@(slot.IsPeakHour ? "true" : "false")"
+                                                data-expires-utc="@FormatUtcIso(slot.HoldExpiresAtUtc)"
+                                                title="@court.Name · @slot.TimeRangeLabel"
+                                                @(canInteract ? null : "disabled")>
+                                            <span class="cb-slot__primary">@GetPrimaryLabel(slot)</span>
+                                            <span class="cb-slot__sub" data-countdown>@GetSubLabel(slot)</span>
+                                        </button>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div id="holdStickyBar" class="cb-hold-bar @(Model.Matrix.MyHolds.Count > 0 ? "is-visible" : "")">
+        <div class="cb-hold-bar__info">
+            <span class="cb-badge cb-badge--held"><span id="holdCountBadge">@Model.Matrix.MyHolds.Count</span> khung giờ</span>
+            <span id="holdSummaryText">@Model.Matrix.MyHolds.SummaryText</span>
+            <span class="cb-hold-bar__timer">
+                Giữ chỗ còn
+                <strong id="holdEarliestTimer" data-expires-utc="@FormatUtcIso(Model.Matrix.MyHolds.EarliestExpiresAtUtc)">@FormatCountdown(Model.Matrix.MyHolds.EarliestExpiresAtUtc)</strong>
+            </span>
+        </div>
+        <form method="post" asp-page-handler="Confirm" asp-route-id="@Model.Matrix.VenueId" class="cb-hold-bar__actions">
+            <input type="hidden" name="date" value="@selectedDateStr" />
+            <input type="hidden" name="sport" value="@Model.SportFilter" />
+            <input type="text" name="notes" class="cb-input cb-hold-bar__note" placeholder="Ghi chú (tùy chọn)" maxlength="120" />
+            <strong id="holdTotalPrice" class="cb-hold-bar__total">@FormatVnd(Model.Matrix.MyHolds.TotalPriceVnd, viCulture)</strong>
+            <button type="submit" class="cb-btn cb-btn--primary">Xác nhận đặt sân</button>
+        </form>
+    </div>
+</div>
+
+@functions {
+    private static string GetSlotClass(SlotVisualState state) => state switch
+    {
+        SlotVisualState.Available => "cb-slot--available",
+        SlotVisualState.HeldByMe => "cb-slot--held-me",
+        SlotVisualState.HeldByOther => "cb-slot--held-other",
+        SlotVisualState.BookedByMe => "cb-slot--booked-me",
+        SlotVisualState.BookedByOther => "cb-slot--booked-other",
+        SlotVisualState.Maintenance => "cb-slot--maintenance",
+        SlotVisualState.Past => "cb-slot--past",
+        _ => "cb-slot--past"
+    };
+
+    private static string GetPrimaryLabel(SlotCellDto slot) => slot.State switch
+    {
+        SlotVisualState.Available => $"{slot.PriceVnd / 1000:0}k",
+        SlotVisualState.HeldByMe => "Đang chọn",
+        SlotVisualState.HeldByOther => "Giữ chỗ",
+        SlotVisualState.BookedByMe => "Của bạn",
+        SlotVisualState.BookedByOther => "Đã đặt",
+        SlotVisualState.Maintenance => "Bảo trì",
+        SlotVisualState.Past => "—",
+        _ => "—"
+    };
+
+    private static string GetSubLabel(SlotCellDto slot)
+    {
+        if (slot.HoldExpiresAtUtc.HasValue && slot.State is SlotVisualState.HeldByMe or SlotVisualState.HeldByOther)
+        {
+            return FormatCountdown(slot.HoldExpiresAtUtc);
+        }
+
+        if (slot.State == SlotVisualState.Available && slot.IsPeakHour)
+        {
+            return "Giờ vàng";
+        }
+
+        return string.Empty;
+    }
+
+    private static string FormatUtcIso(DateTime? utcDateTime)
+    {
+        if (!utcDateTime.HasValue)
+        {
+            return string.Empty;
+        }
+
+        DateTime normalizedUtc = utcDateTime.Value.Kind == DateTimeKind.Local
+            ? utcDateTime.Value.ToUniversalTime()
+            : DateTime.SpecifyKind(utcDateTime.Value, DateTimeKind.Utc);
+
+        return normalizedUtc.ToString("O", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatCountdown(DateTime? expiresAtUtc)
+    {
+        if (!expiresAtUtc.HasValue)
+        {
+            return "--:--";
+        }
+
+        DateTime normalizedUtc = expiresAtUtc.Value.Kind == DateTimeKind.Local
+            ? expiresAtUtc.Value.ToUniversalTime()
+            : DateTime.SpecifyKind(expiresAtUtc.Value, DateTimeKind.Utc);
+
+        TimeSpan remaining = normalizedUtc - DateTime.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return "00:00";
+        }
+
+        return $"{(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
+    }
+
+    private static string FormatVnd(decimal amount, CultureInfo viCulture)
+        => $"{amount.ToString("N0", viCulture)}đ";
+}

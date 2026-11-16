@@ -1,0 +1,83 @@
+@page
+@model CourtBook.Web.Pages.Account.RegisterModel
+@{
+    ViewData["Title"] = "Đăng ký";
+}
+
+<div class="cb-auth-wrap">
+    <div class="cb-auth-card cb-auth-card--wide">
+        <div class="cb-auth-header">
+            <h1 class="cb-auth-title">Tạo tài khoản CourtBook</h1>
+            <p class="cb-auth-subtitle">Chọn vai trò phù hợp để đặt sân hoặc mở cụm sân hợp tác trên sàn.</p>
+        </div>
+
+        <div asp-validation-summary="ModelOnly" class="cb-validation-summary"></div>
+
+        <form method="post" class="cb-auth-form">
+            <input type="hidden" asp-for="ReturnUrl" />
+
+            <div class="cb-field">
+                <span class="cb-field__label">Loại tài khoản</span>
+                <div class="cb-role-selector" role="radiogroup" aria-label="Chọn loại tài khoản">
+                    <label class="cb-role-option" for="roleMember">
+                        <input type="radio"
+                               id="roleMember"
+                               name="Input.RegisterAsOwner"
+                               value="false"
+                               checked="@(!Model.Input.RegisterAsOwner)"
+                               class="cb-role-option__input" />
+                        <span class="cb-role-option__title">Hội viên đặt sân</span>
+                        <span class="cb-role-option__desc">Đặt lịch &amp; giữ chỗ 2 phút real-time</span>
+                    </label>
+                    <label class="cb-role-option" for="roleOwner">
+                        <input type="radio"
+                               id="roleOwner"
+                               name="Input.RegisterAsOwner"
+                               value="true"
+                               checked="@(Model.Input.RegisterAsOwner)"
+                               class="cb-role-option__input" />
+                        <span class="cb-role-option__title">Chủ cụm sân hợp tác</span>
+                        <span class="cb-role-option__desc">Đăng ký cụm sân, quản lý lịch &amp; sân con</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="cb-field">
+                <label asp-for="Input.FullName" class="cb-field__label">Họ và tên</label>
+                <input asp-for="Input.FullName" class="cb-input" autocomplete="name" placeholder="Nguyễn Văn An" />
+                <span asp-validation-for="Input.FullName" class="cb-field-error"></span>
+            </div>
+
+            <div class="cb-field">
+                <label asp-for="Input.Email" class="cb-field__label">Email</label>
+                <input asp-for="Input.Email" class="cb-input" type="email" autocomplete="email" placeholder="ten@example.com" />
+                <span asp-validation-for="Input.Email" class="cb-field-error"></span>
+            </div>
+
+            <div class="cb-field">
+                <label asp-for="Input.PhoneNumber" class="cb-field__label">Số điện thoại</label>
+                <input asp-for="Input.PhoneNumber" class="cb-input" type="tel" autocomplete="tel" placeholder="0909123456" />
+                <span asp-validation-for="Input.PhoneNumber" class="cb-field-error"></span>
+            </div>
+
+            <div class="cb-field">
+                <label asp-for="Input.Password" class="cb-field__label">Mật khẩu</label>
+                <input asp-for="Input.Password" class="cb-input" type="password" autocomplete="new-password" placeholder="Tối thiểu 6 ký tự" />
+                <span asp-validation-for="Input.Password" class="cb-field-error"></span>
+            </div>
+
+            <div class="cb-field">
+                <label asp-for="Input.ConfirmPassword" class="cb-field__label">Xác nhận mật khẩu</label>
+                <input asp-for="Input.ConfirmPassword" class="cb-input" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu" />
+                <span asp-validation-for="Input.ConfirmPassword" class="cb-field-error"></span>
+            </div>
+
+            <button type="submit" class="cb-btn cb-btn--primary cb-btn--block">Đăng ký tài khoản</button>
+        </form>
+
+        <div class="cb-auth-footer">
+            <span>Đã có tài khoản?</span>
+            <a asp-page="/Account/Login" asp-route-returnUrl="@Model.ReturnUrl" class="cb-link">Đăng nhập</a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,127 @@
+@using System.Security.Claims
+@{
+    string path = ViewContext.HttpContext.Request.Path.Value ?? "/";
+    bool isExploreActive = path == "/"
+        || path.Equals("/Index", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith("/Venues", StringComparison.OrdinalIgnoreCase);
+    bool isMyBookingsActive = path.StartsWith("/MyBookings", StringComparison.OrdinalIgnoreCase);
+    bool isOwnerActive = path.StartsWith("/Owner", StringComparison.OrdinalIgnoreCase);
+    bool isAdminActive = path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
+
+    string? displayName = User.FindFirstValue(ClaimTypes.Name) ?? User.Identity?.Name;
+    UserRole? userRole = User.GetUserRole();
+    string roleLabel = User.GetRoleDisplayName();
+    string roleBadgeClass = userRole switch
+    {
+        UserRole.Admin => "cb-badge--admin",
+        UserRole.CourtOwner => "cb-badge--owner",
+        _ => "cb-badge--member"
+    };
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["Title"] != null ? $"{ViewData["Title"]} · CourtBook" : "CourtBook — Sàn đặt sân Pickleball & Cầu lông")</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="cb-topbar">
+        <div class="cb-container cb-topbar__inner">
+            <a asp-page="/Index" class="cb-brand" aria-label="CourtBook Trang chủ">
+                <span class="cb-brand__icon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="28" height="28" rx="7" fill="#16A34A" />
+                        <rect x="6" y="7" width="16" height="14" rx="1.5" stroke="#FFFFFF" stroke-width="1.6" />
+                        <line x1="14" y1="7" x2="14" y2="21" stroke="#FFFFFF" stroke-width="1.6" />
+                        <line x1="6" y1="14" x2="10.5" y2="14" stroke="#FFFFFF" stroke-width="1.3" stroke-opacity="0.85" />
+                        <line x1="17.5" y1="14" x2="22" y2="14" stroke="#FFFFFF" stroke-width="1.3" stroke-opacity="0.85" />
+                        <line x1="10.5" y1="7" x2="10.5" y2="21" stroke="#FFFFFF" stroke-width="1.3" stroke-opacity="0.85" />
+                        <line x1="17.5" y1="7" x2="17.5" y2="21" stroke="#FFFFFF" stroke-width="1.3" stroke-opacity="0.85" />
+                    </svg>
+                </span>
+                <span class="cb-brand__name">CourtBook</span>
+                <span class="cb-brand__pill">Marketplace</span>
+            </a>
+
+            <nav class="cb-nav" aria-label="Điều hướng chính">
+                <a asp-page="/Index" class="cb-nav__link @(isExploreActive ? "is-active" : "")">Khám phá sân</a>
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-page="/MyBookings/Index" class="cb-nav__link @(isMyBookingsActive ? "is-active" : "")">Lịch của tôi</a>
+                }
+                @if (User.IsOwnerOrAdmin())
+                {
+                    <a asp-page="/Owner/Index" class="cb-nav__link @(isOwnerActive ? "is-active" : "")">Kênh Chủ sân</a>
+                }
+                @if (User.IsAdmin())
+                {
+                    <a asp-page="/Admin/Index" class="cb-nav__link @(isAdminActive ? "is-active" : "")">Quản trị sàn</a>
+                }
+            </nav>
+
+            <div class="cb-topbar__right">
+                <div id="signalrStatus" class="cb-live-pill is-connecting" title="Trạng thái đồng bộ thời gian thực">
+                    <span class="cb-live-pill__dot" aria-hidden="true"></span>
+                    <span class="cb-live-pill__text">Trực tuyến</span>
+                </div>
+
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <div class="cb-user-pill">
+                        <span class="cb-user-pill__name">@displayName</span>
+                        @if (!string.IsNullOrEmpty(roleLabel))
+                        {
+                            <span class="cb-badge @roleBadgeClass">@roleLabel</span>
+                        }
+                    </div>
+                    <form method="post" asp-page="/Account/Logout" class="cb-logout-form">
+                        <button type="submit" class="cb-btn cb-btn--ghost cb-btn--sm">Đăng xuất</button>
+                    </form>
+                }
+                else
+                {
+                    <a asp-page="/Account/Register" asp-route-owner="true" class="cb-btn cb-btn--ghost cb-btn--sm cb-partner-cta">Mở sân hợp tác</a>
+                    <a asp-page="/Account/Login" class="cb-btn cb-btn--outline cb-btn--sm">Đăng nhập</a>
+                    <a asp-page="/Account/Register" class="cb-btn cb-btn--primary cb-btn--sm">Đăng ký</a>
+                }
+            </div>
+        </div>
+    </header>
+
+    <div id="cbToastContainer" class="cb-toast-container" aria-live="polite" aria-atomic="true">
+        @if (TempData["ToastSuccess"] is string toastSuccess && !string.IsNullOrWhiteSpace(toastSuccess))
+        {
+            <div class="cb-toast cb-toast--success" role="status" data-auto-dismiss="4500">
+                <span class="cb-toast__icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#16A34A"/><path d="M5 8.2L7 10.2L11.2 6" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <span class="cb-toast__msg">@toastSuccess</span>
+                <button type="button" class="cb-toast__close" aria-label="Đóng">&times;</button>
+            </div>
+        }
+        @if (TempData["ToastError"] is string toastError && !string.IsNullOrWhiteSpace(toastError))
+        {
+            <div class="cb-toast cb-toast--error" role="alert" data-auto-dismiss="5500">
+                <span class="cb-toast__icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="#DC2626"/><path d="M8 4.8V8.4M8 10.8V11.2" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/></svg>
+                </span>
+                <span class="cb-toast__msg">@toastError</span>
+                <button type="button" class="cb-toast__close" aria-label="Đóng">&times;</button>
+            </div>
+        }
+    </div>
+
+    <main class="cb-main">
+        @RenderBody()
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="~/js/courtbook.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,17 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: courtbook-sqlserver
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "CourtBook@2026!"
+      MSSQL_PID: "Developer"
+    volumes:
+      - courtbook_sqlserver_data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  courtbook_sqlserver_data:

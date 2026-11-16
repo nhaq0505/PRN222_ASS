@@ -1,0 +1,134 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Khám phá cụm sân";
+    string? normalizedKeyword = string.IsNullOrWhiteSpace(Model.Browse.Keyword) ? null : Model.Browse.Keyword;
+    string? normalizedDistrict = string.IsNullOrWhiteSpace(Model.Browse.SelectedDistrict) ? null : Model.Browse.SelectedDistrict;
+    bool hasActiveFilter = normalizedKeyword is not null
+        || normalizedDistrict is not null
+        || Model.Browse.SportFilter.HasValue;
+}
+
+<div class="cb-container">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Khám phá cụm sân</h1>
+            <p class="cb-page-subtitle">@Model.Browse.TotalActiveVenues cụm sân đối tác · @Model.Browse.TotalActiveCourts sân mở đặt trực tuyến theo thời gian thực</p>
+        </div>
+
+        <nav class="cb-segmented" aria-label="Lọc theo môn thể thao">
+            <a class="cb-segmented__item @(!Model.Browse.SportFilter.HasValue ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict })">Tất cả</a>
+            <a class="cb-segmented__item @(Model.Browse.SportFilter == SportType.Pickleball ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = SportType.Pickleball })">Pickleball</a>
+            <a class="cb-segmented__item @(Model.Browse.SportFilter == SportType.Badminton ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = SportType.Badminton })">Cầu lông</a>
+        </nav>
+    </div>
+
+    <form method="get" class="cb-filter-bar">
+        <input type="text"
+               name="keyword"
+               value="@Model.Browse.Keyword"
+               class="cb-input"
+               placeholder="Tìm tên cụm sân, đường, phường..."
+               style="min-width:260px;" />
+
+        <select name="district"
+                class="cb-select"
+                onchange="this.form.submit()"
+                aria-label="Lọc theo khu vực">
+            <option value="">Tất cả khu vực</option>
+            @foreach (string d in Model.Browse.AvailableDistricts)
+            {
+                if (string.Equals(d, Model.Browse.SelectedDistrict, StringComparison.OrdinalIgnoreCase))
+                {
+                    <option value="@d" selected>@d</option>
+                }
+                else
+                {
+                    <option value="@d">@d</option>
+                }
+            }
+        </select>
+
+        @if (Model.Browse.SportFilter.HasValue)
+        {
+            <input type="hidden" name="sport" value="@Model.Browse.SportFilter" />
+        }
+
+        <button type="submit" class="cb-btn cb-btn--outline">Tìm sân</button>
+
+        @if (hasActiveFilter)
+        {
+            <a href="/" class="cb-btn cb-btn--ghost cb-btn--sm">Xóa lọc</a>
+        }
+    </form>
+
+    @if (Model.Browse.Venues.Count == 0)
+    {
+        <div class="cb-empty-state">
+            <h3>Không tìm thấy cụm sân phù hợp</h3>
+            <p>Thử đổi từ khóa tìm kiếm, khu vực hoặc môn thể thao để xem thêm cụm sân đang hoạt động.</p>
+            <a href="/" class="cb-btn cb-btn--outline cb-btn--sm">Xem tất cả cụm sân</a>
+        </div>
+    }
+    else
+    {
+        <div class="cb-venue-grid">
+            @foreach (VenueCardDto v in Model.Browse.Venues)
+            {
+                string accent = v.AccentColor switch
+                {
+                    "teal" or "blue" or "amber" or "emerald" => v.AccentColor,
+                    _ => "emerald"
+                };
+
+                string priceLabel = v.MaxPriceVnd <= 0
+                    ? "Đang cập nhật"
+                    : v.MinPriceVnd == v.MaxPriceVnd
+                        ? $"{v.MinPriceVnd / 1000:0}k / giờ"
+                        : $"{v.MinPriceVnd / 1000:0}k - {v.MaxPriceVnd / 1000:0}k / giờ";
+
+                <article class="cb-venue-card">
+                    <div class="cb-venue-card__cover cb-venue-card__cover--@accent">
+                        <span class="cb-badge">@v.District</span>
+                        <span class="cb-venue-card__price">@priceLabel</span>
+                    </div>
+
+                    <div class="cb-venue-card__body">
+                        <h2 class="cb-venue-card__title">
+                            <a href="/Venues/@v.Id">@v.Name</a>
+                        </h2>
+                        <div class="cb-venue-card__meta">@v.Address</div>
+                        <div class="cb-venue-card__meta">
+                            Chủ sân: <strong>@v.OwnerName</strong> · Mở cửa @($"{v.OpenHour:00}:00 - {v.CloseHour:00}:00")
+                        </div>
+                        <div class="cb-venue-card__tags">
+                            @if (v.PickleballCourtCount > 0)
+                            {
+                                <span class="cb-badge cb-badge--pickleball">@v.PickleballCourtCount sân Pickleball</span>
+                            }
+                            @if (v.BadmintonCourtCount > 0)
+                            {
+                                <span class="cb-badge cb-badge--badminton">@v.BadmintonCourtCount sân Cầu lông</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="cb-venue-card__footer">
+                        @if (v.AvailableSlotsToday > 0)
+                        {
+                            <span style="font-size:13px;color:#15803D;font-weight:600;">Còn @v.AvailableSlotsToday ô trống hôm nay</span>
+                        }
+                        else
+                        {
+                            <span style="font-size:13px;color:#64748B;font-weight:500;">Hết ô trống hôm nay</span>
+                        }
+                        <a href="/Venues/@v.Id" class="cb-btn cb-btn--primary cb-btn--sm">Xem lịch &amp; Đặt sân</a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
