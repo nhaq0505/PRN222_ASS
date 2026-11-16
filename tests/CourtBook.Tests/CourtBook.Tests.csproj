@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\src\CourtBook.DataAccessObjects\CourtBook.DataAccessObjects.csproj" />
     <ProjectReference Include="..\..\src\CourtBook.Repositories\CourtBook.Repositories.csproj" />
     <ProjectReference Include="..\..\src\CourtBook.Services\CourtBook.Services.csproj" />
+    <ProjectReference Include="..\..\src\CourtBook.Web\CourtBook.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -42,22 +42,22 @@
                 <div class="cb-form-grid">
                     <label>
                         <span>Họ và tên</span>
-                        <input class="cb-input" type="text" name="fullName" value="@Model.Profile?.FullName" required />
+                        <input class="cb-input" type="text" name="fullName" value="@Model.Profile?.FullName" required minlength="2" maxlength="100" />
                     </label>
                     <label>
                         <span>Số điện thoại</span>
-                        <input class="cb-input" type="tel" name="phoneNumber" value="@Model.Profile?.PhoneNumber" />
+                        <input class="cb-input" type="tel" name="phoneNumber" value="@Model.Profile?.PhoneNumber" minlength="8" maxlength="20" />
                     </label>
                 </div>
 
                 <label>
                     <span>Tiểu sử</span>
-                    <textarea class="cb-input cb-input--textarea" name="bio" rows="4">@Model.Profile?.Bio</textarea>
+                    <textarea class="cb-input cb-input--textarea" name="bio" rows="4" maxlength="400">@Model.Profile?.Bio</textarea>
                 </label>
 
                 <label>
                     <span>Khu vực ưu tiên</span>
-                    <input class="cb-input" type="text" name="preferredDistrict" value="@Model.Profile?.PreferredDistrict" placeholder="VD: TP. Thủ Đức" />
+                    <input class="cb-input" type="text" name="preferredDistrict" value="@Model.Profile?.PreferredDistrict" placeholder="VD: TP. Thủ Đức" maxlength="100" />
                 </label>
 
                 <button type="submit" class="cb-btn cb-btn--primary">Lưu thông tin</button>
@@ -72,7 +72,7 @@
             <form method="post" asp-page-handler="Deposit" class="cb-form-stack">
                 <label>
                     <span>Số tiền muốn nạp</span>
-                    <input class="cb-input" type="number" name="amount" min="50000" step="50000" value="200000" />
+                    <input class="cb-input" type="number" name="amount" min="@IndexModel.MinimumDepositAmountVnd" max="@IndexModel.MaximumDepositAmountVnd" step="@IndexModel.DepositIncrementAmountVnd" value="200000" required />
                 </label>
 
                 <div class="cb-wallet-quick-actions">

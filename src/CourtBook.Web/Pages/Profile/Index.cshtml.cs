@@ -9,6 +9,10 @@ namespace CourtBook.Web.Pages.Profile;
 
 public class IndexModel : PageModel
 {
+    public const decimal MinimumDepositAmountVnd = 50_000m;
+    public const decimal MaximumDepositAmountVnd = 100_000_000m;
+    public const decimal DepositIncrementAmountVnd = 50_000m;
+
     private readonly CourtBookDbContext _db;
 
     public IndexModel(CourtBookDbContext db)
@@ -67,10 +71,11 @@ public class IndexModel : PageModel
             return RedirectToPage("/Account/Login", new { ReturnUrl = "/Profile/Index" });
         }
 
-        decimal sanitizedAmount = Math.Round(amount, 0);
-        if (sanitizedAmount <= 0 || sanitizedAmount > 100_000_000m)
+        if (amount < MinimumDepositAmountVnd
+            || amount > MaximumDepositAmountVnd
+            || amount % DepositIncrementAmountVnd != 0)
         {
-            TempData["ToastError"] = "Số tiền nạp phải nằm trong khoảng 50.000đ đến 100.000.000đ.";
+            TempData["ToastError"] = "Số tiền nạp phải là bội số 50.000đ trong khoảng 50.000đ đến 100.000.000đ.";
             return RedirectToPage();
         }
 
@@ -81,11 +86,11 @@ public class IndexModel : PageModel
             return RedirectToPage();
         }
 
-        profile.WalletBalanceVnd += sanitizedAmount;
+        profile.WalletBalanceVnd += amount;
         _db.WalletTransactions.Add(new WalletTransaction
         {
             UserId = profile.Id,
-            AmountVnd = sanitizedAmount,
+            AmountVnd = amount,
             Type = "Deposit",
             Description = "Nạp tiền vào ví",
             ReferenceCode = $"DEP-{profile.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}",
@@ -93,7 +98,7 @@ public class IndexModel : PageModel
         });
 
         await _db.SaveChangesAsync();
-        TempData["ToastSuccess"] = $"Nạp tiền thành công {sanitizedAmount:N0}đ vào ví của bạn.";
+        TempData["ToastSuccess"] = $"Nạp tiền thành công {amount:N0}đ vào ví của bạn.";
         return RedirectToPage();
     }
 
@@ -121,16 +126,34 @@ public class IndexModel : PageModel
         string trimmedBio = (bio ?? string.Empty).Trim();
         string trimmedDistrict = (preferredDistrict ?? string.Empty).Trim();
 
-        if (string.IsNullOrWhiteSpace(trimmedName))
+        if (trimmedName.Length is < 2 or > 100)
         {
-            TempData["ToastError"] = "Tên hiển thị không được để trống.";
+            TempData["ToastError"] = "Họ và tên phải từ 2 đến 100 ký tự.";
+            return RedirectToPage();
+        }
+
+        if (!string.IsNullOrEmpty(trimmedPhone) && trimmedPhone.Length is < 8 or > 20)
+        {
+            TempData["ToastError"] = "Số điện thoại phải từ 8 đến 20 ký tự.";
+            return RedirectToPage();
+        }
+
+        if (trimmedBio.Length > 400)
+        {
+            TempData["ToastError"] = "Tiểu sử không được vượt quá 400 ký tự.";
+            return RedirectToPage();
+        }
+
+        if (trimmedDistrict.Length > 100)
+        {
+            TempData["ToastError"] = "Khu vực ưu tiên không được vượt quá 100 ký tự.";
             return RedirectToPage();
         }
 
         profile.FullName = trimmedName;
         profile.PhoneNumber = trimmedPhone;
-        profile.Bio = trimmedBio.Length > 400 ? trimmedBio[..400] : trimmedBio;
-        profile.PreferredDistrict = trimmedDistrict.Length > 100 ? trimmedDistrict[..100] : trimmedDistrict;
+        profile.Bio = trimmedBio;
+        profile.PreferredDistrict = trimmedDistrict;
 
         await _db.SaveChangesAsync();
         TempData["ToastSuccess"] = "Thông tin hồ sơ đã được cập nhật.";
