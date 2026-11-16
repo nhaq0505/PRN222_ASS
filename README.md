@@ -124,3 +124,9 @@ PRN222_ASS-main/
 └── tests/
     └── CourtBook.Tests/              # 42 xUnit tests (Integration & Unit tests)
 ```
+
+---
+
+## 8. Đội ngũ phát triển (Contributors)
+- **tphuy227266-star** (`tphuy227266@gmail.com`)
+- **nhaq0505** (`anhquan050503@gmail.com`)
