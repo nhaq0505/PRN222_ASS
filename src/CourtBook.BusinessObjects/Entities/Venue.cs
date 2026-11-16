@@ -12,6 +12,8 @@ public class Venue
     public string PhoneNumber { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string AccentColor { get; set; } = "emerald";
+    public string CoverImageUrl { get; set; } = string.Empty;
+    public string GalleryImageUrls { get; set; } = string.Empty;
     public int OpenHour { get; set; } = 6;
     public int CloseHour { get; set; } = 22;
     public int OwnerId { get; set; }
@@ -29,5 +31,40 @@ public class Venue
         int start = Math.Clamp(OpenHour, 5, 22);
         int end = Math.Clamp(CloseHour, start + 1, 23);
         return Enumerable.Range(start, end - start).ToArray();
+    }
+
+    /// <summary>
+    /// Returns distinct non-empty photo URLs starting with CoverImageUrl followed by split GalleryImageUrls.
+    /// </summary>
+    public IReadOnlyList<string> GetAllPhotos()
+    {
+        var photos = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(CoverImageUrl))
+        {
+            string cover = CoverImageUrl.Trim();
+            if (seen.Add(cover))
+            {
+                photos.Add(cover);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(GalleryImageUrls))
+        {
+            string[] parts = GalleryImageUrls.Split(
+                [';', '|'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (string part in parts)
+            {
+                if (!string.IsNullOrWhiteSpace(part) && seen.Add(part))
+                {
+                    photos.Add(part);
+                }
+            }
+        }
+
+        return photos;
     }
 }

@@ -665,11 +665,342 @@
             });
     }
 
+    // =========================================================
+    // Photo Upload Dropzone, Existing Photo Removal & Lightbox
+    // =========================================================
+    function isSupportedImageFile(file) {
+        if (!file) {
+            return false;
+        }
+        if (file.type && file.type.startsWith('image/')) {
+            return true;
+        }
+        return /\.(jpe?g|png|webp)$/i.test(file.name || '');
+    }
+
+    function findPreviewContainer(dropzone) {
+        if (!dropzone) {
+            return null;
+        }
+        if (dropzone.dataset.previewTarget) {
+            const explicit = document.querySelector(dropzone.dataset.previewTarget);
+            if (explicit) {
+                return explicit;
+            }
+        }
+        const inside = dropzone.querySelector('[data-upload-preview]');
+        if (inside) {
+            return inside;
+        }
+        let sibling = dropzone.nextElementSibling;
+        while (sibling) {
+            if (sibling.matches('[data-upload-preview]')) {
+                return sibling;
+            }
+            const nested = sibling.querySelector('[data-upload-preview]');
+            if (nested) {
+                return nested;
+            }
+            sibling = sibling.nextElementSibling;
+        }
+        const scope = dropzone.closest('.cb-field') || dropzone.parentElement;
+        return scope ? scope.querySelector('[data-upload-preview]') : null;
+    }
+
+    function clearClientPreviews(previewContainer) {
+        if (!previewContainer) {
+            return;
+        }
+        previewContainer.querySelectorAll('[data-client-preview]').forEach((el) => {
+            const url = el.dataset.objectUrl;
+            if (url) {
+                URL.revokeObjectURL(url);
+            }
+            el.remove();
+        });
+    }
+
+    function renderDropzonePreviews(input, previewContainer) {
+        if (!input || !previewContainer) {
+            return;
+        }
+        clearClientPreviews(previewContainer);
+
+        const files = Array.from(input.files || []);
+        files.forEach((file, index) => {
+            if (!isSupportedImageFile(file)) {
+                return;
+            }
+
+            const objectUrl = URL.createObjectURL(file);
+            const card = document.createElement('div');
+            card.className = 'cb-upload-thumb';
+            card.setAttribute('data-client-preview', '1');
+            card.dataset.objectUrl = objectUrl;
+
+            const img = document.createElement('img');
+            img.src = objectUrl;
+            img.alt = file.name || 'Xem trước ảnh';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'cb-upload-thumb__remove';
+            removeBtn.setAttribute('title', 'Bỏ ảnh đã chọn');
+            removeBtn.setAttribute('aria-label', 'Bỏ ảnh đã chọn');
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof DataTransfer !== 'undefined') {
+                    const dt = new DataTransfer();
+                    Array.from(input.files || []).forEach((f, i) => {
+                        if (i !== index) {
+                            dt.items.add(f);
+                        }
+                    });
+                    input.files = dt.files;
+                } else {
+                    input.value = '';
+                }
+                renderDropzonePreviews(input, previewContainer);
+            });
+
+            card.appendChild(img);
+            card.appendChild(removeBtn);
+            previewContainer.appendChild(card);
+        });
+    }
+
+    function initDropzones() {
+        document.querySelectorAll('[data-dropzone]').forEach((dropzone) => {
+            const input = dropzone.querySelector('input[type="file"]');
+            if (!input) {
+                return;
+            }
+            const previewContainer = findPreviewContainer(dropzone);
+
+            dropzone.addEventListener('click', (event) => {
+                if (event.target === input || event.target.closest('button, a')) {
+                    return;
+                }
+                input.click();
+            });
+
+            input.addEventListener('change', () => {
+                const selected = Array.from(input.files || []);
+                if (selected.some((f) => !isSupportedImageFile(f))) {
+                    showToast('Chỉ hỗ trợ ảnh định dạng JPG, PNG hoặc WebP.', 'error');
+                }
+                renderDropzonePreviews(input, previewContainer);
+            });
+
+            ['dragenter', 'dragover'].forEach((evtName) => {
+                dropzone.addEventListener(evtName, (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dropzone.classList.add('is-dragover');
+                });
+            });
+
+            ['dragleave', 'dragend'].forEach((evtName) => {
+                dropzone.addEventListener(evtName, (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!dropzone.contains(event.relatedTarget)) {
+                        dropzone.classList.remove('is-dragover');
+                    }
+                });
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                dropzone.classList.remove('is-dragover');
+
+                const dropped = Array.from(event.dataTransfer?.files || []);
+                if (dropped.length === 0) {
+                    return;
+                }
+
+                const validImages = dropped.filter(isSupportedImageFile);
+                if (validImages.length === 0) {
+                    showToast('Chỉ hỗ trợ ảnh định dạng JPG, PNG hoặc WebP.', 'error');
+                    return;
+                }
+                if (validImages.length < dropped.length) {
+                    showToast('Một số tệp không phải ảnh JPG/PNG/WebP đã được bỏ qua.', 'info');
+                }
+
+                if (typeof DataTransfer !== 'undefined') {
+                    const dt = new DataTransfer();
+                    const picked = input.multiple ? validImages : [validImages[0]];
+                    picked.forEach((file) => dt.items.add(file));
+                    input.files = dt.files;
+                }
+                renderDropzonePreviews(input, previewContainer);
+            });
+        });
+    }
+
+    function initExistingPhotoRemoval() {
+        document.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-remove-existing-photo]');
+            if (!btn) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+
+            const removeUrl = (btn.getAttribute('data-remove-existing-photo') || '').trim();
+            const thumb = btn.closest('.cb-upload-thumb');
+            const form = btn.closest('form');
+
+            if (form) {
+                const galleryInput = form.querySelector('input[name="VenueForm.GalleryImageUrls"]');
+                const coverInput = form.querySelector('input[name="VenueForm.CoverImageUrl"]');
+                const removeCourtInput = form.querySelector('input[name="RemoveCourtPhoto"]');
+                const courtImageInput = form.querySelector('input[name="CourtForm.ImageUrl"]');
+
+                let handledInGallery = false;
+                if (galleryInput && removeUrl) {
+                    const currentUrls = (galleryInput.value || '')
+                        .split(';')
+                        .map((u) => u.trim())
+                        .filter(Boolean);
+                    const idx = currentUrls.indexOf(removeUrl);
+                    if (idx >= 0) {
+                        currentUrls.splice(idx, 1);
+                        galleryInput.value = currentUrls.join(';');
+                        handledInGallery = true;
+                    }
+                }
+
+                if (!handledInGallery && coverInput && removeUrl && coverInput.value.trim() === removeUrl) {
+                    coverInput.value = '';
+                }
+
+                if (removeCourtInput && !handledInGallery) {
+                    removeCourtInput.value = 'true';
+                    if (removeCourtInput.type === 'checkbox') {
+                        removeCourtInput.checked = true;
+                    }
+                    if (courtImageInput) {
+                        courtImageInput.value = '';
+                    }
+                }
+            }
+
+            if (thumb) {
+                thumb.remove();
+            }
+        });
+    }
+
+    function ensureLightbox() {
+        let lightbox = document.getElementById('cbLightbox');
+        if (lightbox) {
+            return lightbox;
+        }
+
+        lightbox = document.createElement('div');
+        lightbox.id = 'cbLightbox';
+        lightbox.className = 'cb-lightbox';
+        lightbox.setAttribute('role', 'dialog');
+        lightbox.setAttribute('aria-modal', 'true');
+        lightbox.setAttribute('aria-label', 'Xem ảnh phóng to');
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'cb-lightbox__close';
+        closeBtn.setAttribute('aria-label', 'Đóng');
+        closeBtn.innerHTML = '&times;';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'cb-lightbox__dialog';
+
+        const img = document.createElement('img');
+        img.className = 'cb-lightbox__img';
+        img.alt = '';
+
+        const caption = document.createElement('div');
+        caption.className = 'cb-lightbox__caption';
+
+        dialog.appendChild(img);
+        dialog.appendChild(caption);
+        lightbox.appendChild(closeBtn);
+        lightbox.appendChild(dialog);
+        document.body.appendChild(lightbox);
+
+        function closeLightbox() {
+            lightbox.classList.remove('is-open');
+            img.removeAttribute('src');
+            caption.textContent = '';
+        }
+
+        closeBtn.addEventListener('click', closeLightbox);
+        lightbox.addEventListener('click', (event) => {
+            if (event.target === lightbox) {
+                closeLightbox();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && lightbox.classList.contains('is-open')) {
+                closeLightbox();
+            }
+        });
+
+        lightbox._closeLightbox = closeLightbox;
+        return lightbox;
+    }
+
+    function openLightbox(src, captionText) {
+        if (!src) {
+            return;
+        }
+        const lightbox = ensureLightbox();
+        const img = lightbox.querySelector('.cb-lightbox__img');
+        const caption = lightbox.querySelector('.cb-lightbox__caption');
+        if (img) {
+            img.src = src;
+            img.alt = captionText || 'Ảnh cụm sân';
+        }
+        if (caption) {
+            caption.textContent = captionText || '';
+        }
+        lightbox.classList.add('is-open');
+    }
+
+    function initLightbox() {
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('[data-remove-existing-photo], .cb-upload-thumb__remove')) {
+                return;
+            }
+            const trigger = event.target.closest('[data-lightbox-src]');
+            if (!trigger) {
+                return;
+            }
+            const src = trigger.getAttribute('data-lightbox-src');
+            if (!src) {
+                return;
+            }
+            event.preventDefault();
+            const caption = trigger.getAttribute('data-lightbox-caption')
+                || trigger.getAttribute('title')
+                || trigger.getAttribute('alt')
+                || trigger.querySelector('img')?.getAttribute('alt')
+                || '';
+            openLightbox(src, caption);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         initExistingToasts();
         initScheduleClickHandlers();
         tickCountdowns();
         window.setInterval(tickCountdowns, 1000);
         initSignalR();
+        initDropzones();
+        initExistingPhotoRemoval();
+        initLightbox();
     });
 })();

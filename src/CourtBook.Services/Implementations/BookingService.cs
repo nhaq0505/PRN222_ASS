@@ -96,6 +96,7 @@ public class BookingService : IBookingService
                 SportType = court.SportType,
                 IsIndoor = court.IsIndoor,
                 Surface = court.Surface,
+                ImageUrl = court.ImageUrl,
                 BasePricePerHour = court.BasePricePerHour,
                 PeakPricePerHour = court.PeakPricePerHour,
                 IsActive = court.IsActive,
@@ -114,6 +115,9 @@ public class BookingService : IBookingService
             VenueDistrict = venue.District,
             VenueAddress = venue.Address,
             VenuePhone = venue.PhoneNumber,
+            VenueDescription = venue.Description,
+            VenueCoverImageUrl = venue.CoverImageUrl,
+            VenuePhotoUrls = venue.GetAllPhotos(),
             OwnerName = venue.Owner?.FullName ?? string.Empty,
             OpenHour = venue.OpenHour,
             CloseHour = venue.CloseHour,
@@ -551,6 +555,7 @@ public class BookingService : IBookingService
                 Id = v.Id,
                 Name = v.Name,
                 District = v.District,
+                CoverImageUrl = v.CoverImageUrl,
                 Status = v.Status,
                 CourtCount = v.Courts.Count
             })

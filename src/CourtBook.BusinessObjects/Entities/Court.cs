@@ -12,6 +12,7 @@ public class Court
     public SportType SportType { get; set; }
     public bool IsIndoor { get; set; }
     public string Surface { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public decimal BasePricePerHour { get; set; }
     public decimal PeakPricePerHour { get; set; }
     public bool IsActive { get; set; } = true;

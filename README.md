@@ -15,12 +15,12 @@ Solution [`CourtBook.sln`](CourtBook.sln) được tổ chức theo kiến trúc
 
 | Tầng | Dự án | Trách nhiệm chính |
 | :--- | :--- | :--- |
-| **Layer 1: BusinessObjects** | `src/CourtBook.BusinessObjects` | Entities (`AppUser`, `Venue`, `Court`, `Booking`), Enums (`UserRole`, `VenueStatus`, `SportType`, `BookingStatus`), giờ hoạt động (`Venue.GetOperatingHours`), tính giá giờ thường / giờ vàng (`Court.IsPeakHour`, `Court.GetPriceForHour`) và PBKDF2 hashing (`PasswordHelper`). |
-| **Layer 2: DataAccessObjects** | `src/CourtBook.DataAccessObjects` | `CourtBookDbContext` (EF Core 10 + SQL Server), Migration `InitialMultiOwnerCourtBook` (`Migrations/`), các DAO (`UserDao`, `VenueDao`, `CourtDao`, `BookingDao` với `TryAddSlotAsync`), và `DbInitializer` (tự động migrate & seed dữ liệu Multi-Owner). |
+| **Layer 1: BusinessObjects** | `src/CourtBook.BusinessObjects` | Entities (`AppUser`, `Venue`, `Court`, `Booking`), Enums (`UserRole`, `VenueStatus`, `SportType`, `BookingStatus`), giờ hoạt động (`Venue.GetOperatingHours`), danh sách ảnh (`Venue.CoverImageUrl`, `Venue.GalleryImageUrls`, `Venue.GetAllPhotos()`, `Court.ImageUrl`), tính giá giờ thường / giờ vàng (`Court.IsPeakHour`, `Court.GetPriceForHour`) và PBKDF2 hashing (`PasswordHelper`). |
+| **Layer 2: DataAccessObjects** | `src/CourtBook.DataAccessObjects` | `CourtBookDbContext` (EF Core 10 + SQL Server), Migration `InitialCourtBookV3` (`Migrations/`), các DAO (`UserDao`, `VenueDao`, `CourtDao`, `BookingDao` với `TryAddSlotAsync`), và `DbInitializer` (tự động migrate & seed dữ liệu Multi-Owner cùng 5 ảnh mẫu `/uploads/venues/*.jpg`). |
 | **Layer 3: Repositories** | `src/CourtBook.Repositories` | Các interface (`IUserRepository`, `IVenueRepository`, `ICourtRepository`, `IBookingRepository`) và implementation bọc DAO phục vụ Dependency Injection & Unit Testing. |
-| **Layer 4: Services** | `src/CourtBook.Services` | Business logic, DTO và kiểm soát phân quyền theo chủ sân (`AuthService`, `VenueService`, `CourtService`, `BookingService`, `PlatformAdminService`), khóa đồng bộ slot (`SemaphoreSlim`), tự động nhả giữ chỗ hết hạn, phát sự kiện real-time qua `ISlotRealtimeNotifier`. |
-| **Layer 5: Presentation (Web)** | `src/CourtBook.Web` | Razor Pages (`Index`, `Venues/Details`, `MyBookings/Index`, `Owner/Index`, `Admin/Index`, `Account/*`), SignalR Hub (`/hubs/court`), `SignalRSlotRealtimeNotifier`, `ExpiredHoldCleanupWorker`, Cookie Auth, CSS & JS client (`wwwroot/js/courtbook.js`). |
-| **Tests** | `tests/CourtBook.Tests` | **25 kiểm thử tự động xUnit** bao phủ `DbInitializer`, đăng ký/đăng nhập theo vai trò, bộ lọc marketplace, vòng đời duyệt cụm sân, cô lập dữ liệu chéo chủ sân (`CourtOwner` tenant isolation), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, bảo toàn `DateTimeKind.Utc` và KPI toàn sàn. |
+| **Layer 4: Services** | `src/CourtBook.Services` | Business logic, DTO, kiểm tra URL ảnh (`ImageUrlValidator`), và kiểm soát phân quyền theo chủ sân (`AuthService`, `VenueService`, `CourtService`, `BookingService`, `PlatformAdminService`), khóa đồng bộ slot (`SemaphoreSlim`), tự động nhả giữ chỗ hết hạn, phát sự kiện real-time qua `ISlotRealtimeNotifier`. |
+| **Layer 5: Presentation (Web)** | `src/CourtBook.Web` | Razor Pages (`Index`, `Venues/Details`, `MyBookings/Index`, `Owner/Index`, `Admin/Index`, `Account/*`), dịch vụ lưu ảnh multipart (`IPhotoStorageService` / `LocalPhotoStorageService`), SignalR Hub (`/hubs/court`), `SignalRSlotRealtimeNotifier`, `ExpiredHoldCleanupWorker`, Cookie Auth, CSS & JS client (`wwwroot/js/courtbook.js`, `wwwroot/uploads/venues/`). |
+| **Tests** | `tests/CourtBook.Tests` | **35 kiểm thử tự động xUnit** bao phủ `DbInitializer`, đăng ký/đăng nhập theo vai trò, bộ lọc marketplace, vòng đời duyệt cụm sân, cô lập dữ liệu chéo chủ sân (`CourtOwner` tenant isolation), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, bảo toàn `DateTimeKind.Utc`, KPI toàn sàn và validate/lưu trữ ảnh cụm sân & sân con (`VenueAndCourtPhotoTests`). |
 
 ---
 
@@ -42,7 +42,7 @@ Cấu hình trong [`docker-compose.yml`](docker-compose.yml):
 - **Database:** `CourtBookDb` (tự động tạo & migrate khi khởi động ứng dụng)
 - **Tài khoản `sa`:** `CourtBook@2026!`
 
-Script SQL idempotent của schema v2 được xuất sẵn tại [`database/CourtBook_Schema.sql`](database/CourtBook_Schema.sql), tương ứng với migration `InitialMultiOwnerCourtBook` trong `src/CourtBook.DataAccessObjects/Migrations/`. Nếu cần cập nhật database thủ công bằng EF Core CLI:
+Script SQL idempotent của schema v3 được xuất sẵn tại [`database/CourtBook_Schema.sql`](database/CourtBook_Schema.sql), tương ứng với migration `InitialCourtBookV3` trong `src/CourtBook.DataAccessObjects/Migrations/`. Nếu cần cập nhật database thủ công bằng EF Core CLI:
 ```bash
 dotnet ef database update --project src/CourtBook.DataAccessObjects --startup-project src/CourtBook.Web
 ```
@@ -55,7 +55,7 @@ dotnet ef database update --project src/CourtBook.DataAccessObjects --startup-pr
 # 1. Build toàn bộ solution (Release)
 dotnet build CourtBook.sln --configuration Release
 
-# 2. Chạy toàn bộ 25 unit tests (xUnit)
+# 2. Chạy toàn bộ 35 unit tests (xUnit)
 dotnet test CourtBook.sln --configuration Release
 
 # 3. Kiểm tra cú pháp JavaScript client (tùy chọn)
@@ -109,3 +109,21 @@ Khi khởi chạy trên database trống, `DbInitializer.InitializeAsync` tự �
 3. **Bảo vệ ranh giới đa chủ sân (Multi-Owner Tenant Isolation):**
    - Mọi thao tác tại `VenueService`, `CourtService` và `BookingService` (cập nhật cụm sân, thêm/sửa/bảo trì sân con, check-in, hủy đơn của khách) đều kiểm tra `venue.OwnerId == actorUserId || isAdmin`. Chủ sân A không thể xem danh sách thao tác hoặc gửi POST chỉnh sửa cụm sân/sân/đơn của chủ sân B.
    - Các cụm sân mới do `CourtOwner` tạo ở trạng thái `PendingApproval`, chỉ hiển thị công khai trên `/` và cho phép đặt sân tại `/Venues/{id}` sau khi `Admin` phê duyệt (`Active`).
+
+---
+
+## 6. Giao Diện Khám Phá Marketplace & Tải Ảnh Cụm Sân / Sân Con (v3)
+
+1. **Giao diện Khám phá Cụm sân (`/`) theo phong cách Photo-First Marketplace:**
+   - Thanh tìm kiếm hợp nhất 3 phân vùng (`.cb-search-pill`) hỗ trợ lọc theo **Từ khóa** (tên cụm sân / địa chỉ), **Khu vực** và **Môn thể thao** (`Pickleball` / `Cầu lông`), đi kèm dãy chip lọc nhanh (`.cb-chip-list`) và bộ đếm cụm sân / sân đang mở trực tuyến.
+   - Thẻ cụm sân `.cb-venue-card` hiển thị ảnh bìa tỷ lệ `16:10` (hoặc SVG sân thể thao khi chưa có ảnh), huy hiệu số ô trống trong ngày, số lượng ảnh thư viện, khu vực/giờ mở cửa, badge số sân theo môn, tên chủ sân và mức giá khởi điểm (`Từ ...đ/giờ`).
+2. **Thư viện ảnh Bento & Lightbox phóng to (`/Venues/{id}` & `/Admin`):**
+   - Trang đặt lịch `/Venues/{id}` hiển thị lưới ảnh Bento `.cb-venue-gallery` (1 ảnh bìa chính + tối đa 2 ảnh phụ) ngay phía trên ma trận lịch 16 khung giờ và ảnh thumbnail `.cb-court-thumb` cạnh từng tên sân con.
+   - Trang quản trị `/Admin` hiển thị thumbnail `.cb-admin-thumb` cho từng cụm sân trong bảng phê duyệt. Mọi ảnh gắn `data-lightbox-src` mở modal `#cbLightbox` (hỗ trợ đóng bằng nút đóng, click nền hoặc phím `Escape`).
+3. **Tải ảnh Multipart & Kiểm tra bảo mật tệp tin (`/Owner`):**
+   - Trang quản lý chủ sân `/Owner` hỗ trợ biểu mẫu `multipart/form-data` với vùng kéo thả `[data-dropzone]`, xem trước ảnh cục bộ trước khi gửi (`[data-upload-preview]`) và xóa ảnh đã lưu (`[data-remove-existing-photo]`):
+     - **Cụm sân (`CreateVenue` / `UpdateVenue`):** hỗ trợ **1 ảnh bìa** (`CoverPhoto`) và **thư viện ảnh thực tế** (`GalleryPhotos`, tối đa 6 ảnh khi tạo mới; tối đa 8 ảnh trong thư viện). Nếu tạo cụm sân mới chưa chọn ảnh bìa riêng, ảnh đầu tiên của thư viện sẽ tự động được dùng làm ảnh bìa.
+     - **Sân con (`SaveCourt`):** hỗ trợ **1 ảnh thực tế** (`CourtPhoto`) và cờ xóa ảnh (`RemoveCourtPhoto`).
+   - `LocalPhotoStorageService` lưu tệp vào `wwwroot/uploads/venues/` và `wwwroot/uploads/courts/` dưới tên `<guid>.<ext>`, giới hạn **5MB/tệp**, chỉ nhận phần mở rộng `.jpg`, `.jpeg`, `.png`, `.webp`, đồng thời kiểm tra **magic-byte header** để từ chối các tệp giả mạo phần mở rộng.
+   - Tầng Service kiểm tra bổ sung qua `ImageUrlValidator`: chỉ chấp nhận đường dẫn trống, `/uploads/...` hoặc `https://...`, chặn `javascript:`, `data:`, `http://` và đường dẫn traversal.
+   - Dữ liệu seed mặc định đính kèm sẵn **5 ảnh `.jpg` thực tế** trong `src/CourtBook.Web/wwwroot/uploads/venues/` cho cả 4 cụm sân và 18 sân con.

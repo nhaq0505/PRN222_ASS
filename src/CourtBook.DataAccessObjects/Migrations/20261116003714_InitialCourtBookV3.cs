@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CourtBook.DataAccessObjects.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialMultiOwnerCourtBook : Migration
+    public partial class InitialCourtBookV3 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -43,6 +43,8 @@ namespace CourtBook.DataAccessObjects.Migrations
                     PhoneNumber = table.Column<string>(type: "nvarchar(25)", maxLength: 25, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: false),
                     AccentColor = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    CoverImageUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
+                    GalleryImageUrls = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
                     OpenHour = table.Column<int>(type: "int", nullable: false),
                     CloseHour = table.Column<int>(type: "int", nullable: false),
                     OwnerId = table.Column<int>(type: "int", nullable: false),
@@ -72,6 +74,7 @@ namespace CourtBook.DataAccessObjects.Migrations
                     SportType = table.Column<int>(type: "int", nullable: false),
                     IsIndoor = table.Column<bool>(type: "bit", nullable: false),
                     Surface = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    ImageUrl = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     BasePricePerHour = table.Column<decimal>(type: "decimal(18,0)", precision: 18, scale: 0, nullable: false),
                     PeakPricePerHour = table.Column<decimal>(type: "decimal(18,0)", precision: 18, scale: 0, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),

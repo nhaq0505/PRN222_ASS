@@ -58,6 +58,12 @@
 
             <a href="/Owner?venueId=@v.Id&date=@selectedDateStr&tab=@Model.ActiveTab"
                class="cb-venue-pill @(isSelected ? "is-active" : "")">
+                @if (!string.IsNullOrEmpty(v.CoverImageUrl))
+                {
+                    <img src="@v.CoverImageUrl"
+                         alt=""
+                         class="cb-venue-pill__thumb" />
+                }
                 <span class="cb-venue-pill__dot @dotClass" aria-hidden="true"></span>
                 <span>@v.Name</span>
                 <span class="cb-venue-pill__count">(@v.CourtCount sân)</span>
@@ -96,7 +102,10 @@
                 }
             </div>
 
-            <form method="post" asp-page-handler="CreateVenue" class="cb-form-grid">
+            <form method="post" asp-page-handler="CreateVenue" enctype="multipart/form-data" class="cb-form-grid">
+                <input type="hidden" name="VenueForm.CoverImageUrl" value="@Model.VenueForm.CoverImageUrl" />
+                <input type="hidden" name="VenueForm.GalleryImageUrls" value="@Model.VenueForm.GalleryImageUrls" />
+
                 <div class="cb-field cb-field--full">
                     <label asp-for="VenueForm.Name" class="cb-field__label">Tên cụm sân</label>
                     <input asp-for="VenueForm.Name" class="cb-input" placeholder="VD: Thảo Điền Racquet Club" required maxlength="150" />
@@ -144,6 +153,49 @@
                               maxlength="600"
                               placeholder="Giới thiệu mặt sân, tiện ích bãi xe, đèn chiếu sáng..."
                               style="height:auto;min-height:92px;padding:10px 12px;resize:vertical;"></textarea>
+                </div>
+
+                <div class="cb-field cb-field--full">
+                    <span class="cb-field__label">Ảnh bìa cụm sân</span>
+                    @if (!string.IsNullOrWhiteSpace(Model.VenueForm.CoverImageUrl))
+                    {
+                        <div class="cb-upload-previews" style="margin-top:0;margin-bottom:8px;">
+                            <div class="cb-upload-thumb">
+                                <img src="@Model.VenueForm.CoverImageUrl" alt="Ảnh bìa cụm sân" data-lightbox-src="@Model.VenueForm.CoverImageUrl" />
+                            </div>
+                        </div>
+                    }
+                    <div class="cb-dropzone" data-dropzone>
+                        <input type="file" name="CoverPhoto" accept=".jpg,.jpeg,.png,.webp" hidden />
+                        <span class="cb-dropzone__title">Kéo thả hoặc bấm để chọn ảnh bìa cụm sân</span>
+                        <span class="cb-dropzone__hint">JPG, PNG, WebP · Tối đa 5MB</span>
+                    </div>
+                    <div class="cb-upload-previews" data-upload-preview></div>
+                </div>
+
+                @{
+                    List<string> createGalleryPhotos = IndexModel.ParseGalleryUrls(Model.VenueForm.GalleryImageUrls);
+                }
+                <div class="cb-field cb-field--full">
+                    <span class="cb-field__label">Thư viện ảnh thực tế</span>
+                    @if (createGalleryPhotos.Count > 0)
+                    {
+                        <div class="cb-upload-previews" style="margin-top:0;margin-bottom:8px;">
+                            @foreach (string url in createGalleryPhotos)
+                            {
+                                <div class="cb-upload-thumb" data-photo-url="@url">
+                                    <img src="@url" alt="Ảnh cụm sân" data-lightbox-src="@url" />
+                                    <button type="button" class="cb-upload-thumb__remove" data-remove-existing-photo="@url" title="Xóa ảnh">×</button>
+                                </div>
+                            }
+                        </div>
+                    }
+                    <div class="cb-dropzone" data-dropzone>
+                        <input type="file" name="GalleryPhotos" multiple accept=".jpg,.jpeg,.png,.webp" hidden />
+                        <span class="cb-dropzone__title">Kéo thả hoặc chọn nhiều ảnh sân &amp; tiện ích</span>
+                        <span class="cb-dropzone__hint">JPG, PNG, WebP · Tối đa 5MB · Tối đa 6 ảnh mỗi lần</span>
+                    </div>
+                    <div class="cb-upload-previews" data-upload-preview></div>
                 </div>
 
                 <div class="cb-field cb-field--full">
@@ -352,7 +404,20 @@
 
                                         <tr>
                                             <td><strong class="cb-table__code">@c.Code</strong></td>
-                                            <td><strong>@c.Name</strong></td>
+                                            <td>
+                                                <div style="display:flex;align-items:center;gap:10px;">
+                                                    @if (!string.IsNullOrWhiteSpace(c.ImageUrl))
+                                                    {
+                                                        <img src="@c.ImageUrl"
+                                                             alt="@c.Name"
+                                                             class="cb-admin-thumb"
+                                                             data-lightbox-src="@c.ImageUrl"
+                                                             data-lightbox-caption="@c.Name"
+                                                             title="Xem ảnh @c.Name" />
+                                                    }
+                                                    <strong>@c.Name</strong>
+                                                </div>
+                                            </td>
                                             <td><span class="cb-badge @sportBadgeClass">@sportLabel</span></td>
                                             <td>
                                                 <div>@(c.IsIndoor ? "Trong nhà" : "Ngoài trời")</div>
@@ -398,10 +463,12 @@
                         }
                     </div>
 
-                    <form method="post" asp-page-handler="SaveCourt" class="cb-form-grid">
+                    <form method="post" asp-page-handler="SaveCourt" enctype="multipart/form-data" class="cb-form-grid">
                         <input type="hidden" asp-for="CourtForm.Id" />
                         <input type="hidden" name="CourtForm.VenueId" value="@selectedVenue.Id" />
                         <input type="hidden" name="date" value="@selectedDateStr" />
+                        <input type="hidden" asp-for="CourtForm.ImageUrl" />
+                        <input type="hidden" name="RemoveCourtPhoto" value="@(Model.RemoveCourtPhotoState ? "true" : "false")" />
 
                         <div class="cb-field">
                             <label asp-for="CourtForm.Code" class="cb-field__label">Mã sân</label>
@@ -457,6 +524,30 @@
                         </div>
 
                         <div class="cb-field cb-field--full">
+                            <span class="cb-field__label">Ảnh thực tế sân</span>
+                            @if (!string.IsNullOrWhiteSpace(Model.CourtForm.ImageUrl))
+                            {
+                                <div class="cb-upload-previews" style="margin-top:0;margin-bottom:8px;">
+                                    <div class="cb-upload-thumb" data-photo-url="@Model.CourtForm.ImageUrl">
+                                        <img src="@Model.CourtForm.ImageUrl"
+                                             alt="Ảnh @Model.CourtForm.Name"
+                                             data-lightbox-src="@Model.CourtForm.ImageUrl" />
+                                        <button type="button"
+                                                class="cb-upload-thumb__remove"
+                                                data-remove-existing-photo="@Model.CourtForm.ImageUrl"
+                                                title="Xóa ảnh sân">×</button>
+                                    </div>
+                                </div>
+                            }
+                            <div class="cb-dropzone" data-dropzone style="padding:14px 12px;">
+                                <input type="file" name="CourtPhoto" accept=".jpg,.jpeg,.png,.webp" hidden />
+                                <span class="cb-dropzone__title">Kéo thả hoặc chọn ảnh sân</span>
+                                <span class="cb-dropzone__hint">JPG, PNG, WebP · Tối đa 5MB</span>
+                            </div>
+                            <div class="cb-upload-previews" data-upload-preview></div>
+                        </div>
+
+                        <div class="cb-field cb-field--full">
                             <button type="submit" class="cb-btn cb-btn--primary cb-btn--block">
                                 @(Model.IsEditingCourt ? "Lưu thay đổi" : "Thêm sân con")
                             </button>
@@ -475,9 +566,11 @@
                     </span>
                 </div>
 
-                <form method="post" asp-page-handler="UpdateVenue" class="cb-form-grid">
+                <form method="post" asp-page-handler="UpdateVenue" enctype="multipart/form-data" class="cb-form-grid">
                     <input type="hidden" name="VenueForm.Id" value="@selectedVenue.Id" />
                     <input type="hidden" name="date" value="@selectedDateStr" />
+                    <input type="hidden" name="VenueForm.CoverImageUrl" value="@Model.VenueForm.CoverImageUrl" />
+                    <input type="hidden" name="VenueForm.GalleryImageUrls" value="@Model.VenueForm.GalleryImageUrls" />
 
                     <div class="cb-field cb-field--full">
                         <label asp-for="VenueForm.Name" class="cb-field__label">Tên cụm sân</label>
@@ -525,6 +618,54 @@
                                   class="cb-input"
                                   maxlength="600"
                                   style="height:auto;min-height:92px;padding:10px 12px;resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="cb-field cb-field--full">
+                        <span class="cb-field__label">Ảnh bìa cụm sân</span>
+                        @if (!string.IsNullOrWhiteSpace(Model.VenueForm.CoverImageUrl))
+                        {
+                            <div class="cb-upload-previews" style="margin-top:0;margin-bottom:8px;">
+                                <div class="cb-upload-thumb">
+                                    <img src="@Model.VenueForm.CoverImageUrl"
+                                         alt="Ảnh bìa @selectedVenue.Name"
+                                         data-lightbox-src="@Model.VenueForm.CoverImageUrl" />
+                                </div>
+                            </div>
+                        }
+                        <div class="cb-dropzone" data-dropzone>
+                            <input type="file" name="CoverPhoto" accept=".jpg,.jpeg,.png,.webp" hidden />
+                            <span class="cb-dropzone__title">Kéo thả hoặc bấm để thay ảnh bìa cụm sân</span>
+                            <span class="cb-dropzone__hint">JPG, PNG, WebP · Tối đa 5MB</span>
+                        </div>
+                        <div class="cb-upload-previews" data-upload-preview></div>
+                    </div>
+
+                    @{
+                        List<string> existingGallery = IndexModel.ParseGalleryUrls(Model.VenueForm.GalleryImageUrls);
+                    }
+                    <div class="cb-field cb-field--full">
+                        <span class="cb-field__label">Thư viện ảnh thực tế (@existingGallery.Count/8 ảnh)</span>
+                        @if (existingGallery.Count > 0)
+                        {
+                            <div class="cb-upload-previews" style="margin-top:0;margin-bottom:8px;">
+                                @foreach (string url in existingGallery)
+                                {
+                                    <div class="cb-upload-thumb" data-photo-url="@url">
+                                        <img src="@url" alt="@selectedVenue.Name" data-lightbox-src="@url" />
+                                        <button type="button"
+                                                class="cb-upload-thumb__remove"
+                                                data-remove-existing-photo="@url"
+                                                title="Xóa ảnh">×</button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <div class="cb-dropzone" data-dropzone>
+                            <input type="file" name="GalleryPhotos" multiple accept=".jpg,.jpeg,.png,.webp" hidden />
+                            <span class="cb-dropzone__title">Kéo thả hoặc chọn thêm ảnh thực tế cụm sân</span>
+                            <span class="cb-dropzone__hint">JPG, PNG, WebP · Tối đa 5MB · Tối đa 8 ảnh trong thư viện</span>
+                        </div>
+                        <div class="cb-upload-previews" data-upload-preview></div>
                     </div>
 
                     <div class="cb-field cb-field--full">

@@ -8,6 +8,7 @@ public class OwnerVenueSummaryDto
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string District { get; set; } = string.Empty;
+    public string CoverImageUrl { get; set; } = string.Empty;
     public VenueStatus Status { get; set; }
     public int CourtCount { get; set; }
 }
@@ -35,6 +36,7 @@ public class CourtUpsertDto
     public SportType SportType { get; set; } = SportType.Pickleball;
     public bool IsIndoor { get; set; }
     public string Surface { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public decimal BasePricePerHour { get; set; }
     public decimal PeakPricePerHour { get; set; }
     public bool IsActive { get; set; } = true;
@@ -47,6 +49,7 @@ public class AdminVenueRowDto
     public string Name { get; set; } = string.Empty;
     public string District { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
+    public string CoverImageUrl { get; set; } = string.Empty;
     public int OwnerId { get; set; }
     public string OwnerName { get; set; } = string.Empty;
     public string OwnerEmail { get; set; } = string.Empty;

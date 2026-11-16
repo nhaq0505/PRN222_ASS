@@ -6,6 +6,7 @@ using CourtBook.BusinessObjects.Enums;
 using CourtBook.Repositories;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
+using CourtBook.Services.Validation;
 
 namespace CourtBook.Services.Implementations;
 
@@ -111,6 +112,8 @@ public class VenueService : IVenueService
                 availableSlotsToday = Math.Max(0, (activeCourts.Count * futureHours.Length) - occupiedFutureSlots);
             }
 
+            IReadOnlyList<string> photoUrls = venue.GetAllPhotos();
+
             cards.Add(new VenueCardDto
             {
                 Id = venue.Id,
@@ -121,6 +124,9 @@ public class VenueService : IVenueService
                 PhoneNumber = venue.PhoneNumber,
                 Description = venue.Description,
                 AccentColor = venue.AccentColor,
+                CoverImageUrl = venue.CoverImageUrl,
+                PhotoUrls = photoUrls,
+                PhotoCount = photoUrls.Count,
                 OwnerName = venue.Owner?.FullName ?? string.Empty,
                 OpenHour = venue.OpenHour,
                 CloseHour = venue.CloseHour,
@@ -164,7 +170,9 @@ public class VenueService : IVenueService
             out string address,
             out string phone,
             out string description,
-            out string accentColor);
+            out string accentColor,
+            out string? coverImageUrl,
+            out string? galleryImageUrls);
 
         if (validationError is not null)
         {
@@ -192,6 +200,8 @@ public class VenueService : IVenueService
             PhoneNumber = phone,
             Description = description,
             AccentColor = accentColor,
+            CoverImageUrl = coverImageUrl ?? string.Empty,
+            GalleryImageUrls = galleryImageUrls ?? string.Empty,
             OpenHour = dto!.OpenHour,
             CloseHour = dto.CloseHour,
             OwnerId = ownerUserId,
@@ -232,7 +242,9 @@ public class VenueService : IVenueService
             out string address,
             out string phone,
             out string description,
-            out string accentColor);
+            out string accentColor,
+            out string? coverImageUrl,
+            out string? galleryImageUrls);
 
         if (validationError is not null)
         {
@@ -245,6 +257,14 @@ public class VenueService : IVenueService
         venue.PhoneNumber = phone;
         venue.Description = description;
         venue.AccentColor = accentColor;
+        if (coverImageUrl is not null)
+        {
+            venue.CoverImageUrl = coverImageUrl;
+        }
+        if (galleryImageUrls is not null)
+        {
+            venue.GalleryImageUrls = galleryImageUrls;
+        }
         venue.OpenHour = dto.OpenHour;
         venue.CloseHour = dto.CloseHour;
 
@@ -259,7 +279,9 @@ public class VenueService : IVenueService
         out string address,
         out string phone,
         out string description,
-        out string accentColor)
+        out string accentColor,
+        out string? coverImageUrl,
+        out string? galleryImageUrls)
     {
         name = dto?.Name?.Trim() ?? string.Empty;
         district = dto?.District?.Trim() ?? string.Empty;
@@ -268,6 +290,8 @@ public class VenueService : IVenueService
         description = dto?.Description?.Trim() ?? string.Empty;
         string rawColor = dto?.AccentColor?.Trim().ToLowerInvariant() ?? "emerald";
         accentColor = AllowedAccentColors.Contains(rawColor) ? rawColor : "emerald";
+        coverImageUrl = null;
+        galleryImageUrls = null;
 
         if (dto is null)
         {
@@ -302,6 +326,26 @@ public class VenueService : IVenueService
         if (dto.OpenHour < 5 || dto.CloseHour > 23 || dto.OpenHour >= dto.CloseHour || (dto.CloseHour - dto.OpenHour) < 4)
         {
             return "Giờ hoạt động không hợp lệ (hỗ trợ 05:00 - 23:00, tối thiểu 4 giờ/ngày).";
+        }
+
+        if (dto.CoverImageUrl is not null)
+        {
+            string? coverError = ImageUrlValidator.ValidateSingleUrl(dto.CoverImageUrl, out string normalizedCover);
+            if (coverError is not null)
+            {
+                return coverError;
+            }
+            coverImageUrl = normalizedCover;
+        }
+
+        if (dto.GalleryImageUrls is not null)
+        {
+            string? galleryError = ImageUrlValidator.ValidateGalleryUrls(dto.GalleryImageUrls, out string normalizedGallery);
+            if (galleryError is not null)
+            {
+                return galleryError;
+            }
+            galleryImageUrls = normalizedGallery;
         }
 
         return null;

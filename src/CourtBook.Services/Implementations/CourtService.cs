@@ -3,6 +3,7 @@ using CourtBook.BusinessObjects.Enums;
 using CourtBook.Repositories;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
+using CourtBook.Services.Validation;
 
 namespace CourtBook.Services.Implementations;
 
@@ -54,7 +55,7 @@ public class CourtService : ICourtService
             return ServiceResult<Court>.Fail("Bạn không có quyền thêm sân cho cụm sân của chủ sân khác.");
         }
 
-        string? validationError = ValidateDto(dto, out string code, out string name, out string surface);
+        string? validationError = ValidateDto(dto, out string code, out string name, out string surface, out string? imageUrl);
         if (validationError is not null)
         {
             return ServiceResult<Court>.Fail(validationError);
@@ -73,6 +74,7 @@ public class CourtService : ICourtService
             SportType = dto.SportType,
             IsIndoor = dto.IsIndoor,
             Surface = surface,
+            ImageUrl = string.IsNullOrEmpty(imageUrl) ? null : imageUrl,
             BasePricePerHour = dto.BasePricePerHour,
             PeakPricePerHour = dto.PeakPricePerHour,
             IsActive = dto.IsActive,
@@ -112,7 +114,7 @@ public class CourtService : ICourtService
             return ServiceResult<Court>.Fail("Bạn không có quyền chỉnh sửa sân của chủ sân khác.");
         }
 
-        string? validationError = ValidateDto(dto, out string code, out string name, out string surface);
+        string? validationError = ValidateDto(dto, out string code, out string name, out string surface, out string? imageUrl);
         if (validationError is not null)
         {
             return ServiceResult<Court>.Fail(validationError);
@@ -128,6 +130,10 @@ public class CourtService : ICourtService
         court.SportType = dto.SportType;
         court.IsIndoor = dto.IsIndoor;
         court.Surface = surface;
+        if (imageUrl is not null)
+        {
+            court.ImageUrl = string.IsNullOrEmpty(imageUrl) ? null : imageUrl;
+        }
         court.BasePricePerHour = dto.BasePricePerHour;
         court.PeakPricePerHour = dto.PeakPricePerHour;
         court.IsActive = dto.IsActive;
@@ -171,11 +177,13 @@ public class CourtService : ICourtService
         CourtUpsertDto? dto,
         out string code,
         out string name,
-        out string surface)
+        out string surface,
+        out string? imageUrl)
     {
         code = dto?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
         name = dto?.Name?.Trim() ?? string.Empty;
         surface = dto?.Surface?.Trim() ?? string.Empty;
+        imageUrl = null;
 
         if (dto is null)
         {
@@ -205,6 +213,16 @@ public class CourtService : ICourtService
         if (dto.PeakPricePerHour <= 0)
         {
             return "Giá giờ vàng phải lớn hơn 0.";
+        }
+
+        if (dto.ImageUrl is not null)
+        {
+            string? imageError = ImageUrlValidator.ValidateSingleUrl(dto.ImageUrl, out string normalizedImageUrl);
+            if (imageError is not null)
+            {
+                return imageError;
+            }
+            imageUrl = normalizedImageUrl;
         }
 
         return null;

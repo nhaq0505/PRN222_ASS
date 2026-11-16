@@ -4,6 +4,7 @@ using CourtBook.BusinessObjects.Enums;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 using CourtBook.Web.Extensions;
+using CourtBook.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -13,18 +14,24 @@ namespace CourtBook.Web.Pages.Owner;
 [Authorize(Roles = "CourtOwner,Admin")]
 public class IndexModel : PageModel
 {
+    private const int MaxVenueGalleryPhotos = 8;
+    private const int MaxCreateGalleryBatch = 6;
+
     private readonly IBookingService _bookingService;
     private readonly IVenueService _venueService;
     private readonly ICourtService _courtService;
+    private readonly IPhotoStorageService _photoStorage;
 
     public IndexModel(
         IBookingService bookingService,
         IVenueService venueService,
-        ICourtService courtService)
+        ICourtService courtService,
+        IPhotoStorageService photoStorage)
     {
         _bookingService = bookingService;
         _venueService = venueService;
         _courtService = courtService;
+        _photoStorage = photoStorage;
     }
 
     public OwnerPortalDto Portal { get; set; } = new();
@@ -32,6 +39,7 @@ public class IndexModel : PageModel
     public string ActiveTab { get; set; } = "bookings";
     public int? EditCourtId { get; set; }
     public bool ShowNewVenueForm { get; set; }
+    public bool RemoveCourtPhotoState { get; set; }
 
     public VenueUpsertDto VenueForm { get; set; } = CreateDefaultVenueForm();
     public CourtUpsertDto CourtForm { get; set; } = new();
@@ -94,6 +102,7 @@ public class IndexModel : PageModel
                     SportType = court.SportType,
                     IsIndoor = court.IsIndoor,
                     Surface = court.Surface,
+                    ImageUrl = court.ImageUrl,
                     BasePricePerHour = court.BasePricePerHour,
                     PeakPricePerHour = court.PeakPricePerHour,
                     IsActive = court.IsActive,
@@ -114,7 +123,10 @@ public class IndexModel : PageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostCreateVenueAsync(VenueUpsertDto venueForm)
+    public async Task<IActionResult> OnPostCreateVenueAsync(
+        VenueUpsertDto venueForm,
+        IFormFile? coverPhoto,
+        List<IFormFile>? galleryPhotos)
     {
         int? userId = User.GetUserId();
         if (userId is null)
@@ -123,6 +135,53 @@ public class IndexModel : PageModel
         }
 
         NormalizeVenueForm(venueForm);
+
+        if (coverPhoto is { Length: > 0 })
+        {
+            ServiceResult<string> coverResult = await _photoStorage.SavePhotoAsync(
+                coverPhoto,
+                "venues",
+                HttpContext.RequestAborted);
+            if (!coverResult.Succeeded || string.IsNullOrWhiteSpace(coverResult.Data))
+            {
+                return await RenderCreateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    coverResult.ErrorMessage ?? "Không thể lưu ảnh bìa cụm sân.");
+            }
+
+            venueForm.CoverImageUrl = coverResult.Data;
+        }
+
+        if (galleryPhotos is { Count: > 0 })
+        {
+            List<string> existingGallery = ParseGalleryUrls(venueForm.GalleryImageUrls);
+            ServiceResult<List<string>> galleryResult = await _photoStorage.SavePhotosAsync(
+                galleryPhotos,
+                "venues",
+                MaxCreateGalleryBatch,
+                HttpContext.RequestAborted);
+            if (!galleryResult.Succeeded)
+            {
+                return await RenderCreateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    galleryResult.ErrorMessage ?? "Không thể lưu thư viện ảnh cụm sân.");
+            }
+
+            List<string> mergedGallery = existingGallery
+                .Concat(galleryResult.Data ?? Enumerable.Empty<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxVenueGalleryPhotos)
+                .ToList();
+
+            venueForm.GalleryImageUrls = string.Join(';', mergedGallery);
+
+            if (string.IsNullOrWhiteSpace(venueForm.CoverImageUrl) && mergedGallery.Count > 0)
+            {
+                venueForm.CoverImageUrl = mergedGallery[0];
+            }
+        }
 
         ServiceResult<Venue> result = await _venueService.CreateVenueAsync(
             userId.Value,
@@ -139,20 +198,17 @@ public class IndexModel : PageModel
             return RedirectToPage("/Owner/Index", new { venueId = result.Data.Id });
         }
 
-        TempData["ToastError"] = result.ErrorMessage ?? "Không thể đăng ký cụm sân mới.";
-        SelectedDate = GetVietnamToday();
-        Portal = await _bookingService.GetOwnerPortalAsync(
+        return await RenderCreateVenueErrorAsync(
             userId.Value,
-            User.IsAdmin(),
-            null,
-            SelectedDate,
-            HttpContext.RequestAborted);
-        ShowNewVenueForm = true;
-        VenueForm = venueForm;
-        return Page();
+            venueForm,
+            result.ErrorMessage ?? "Không thể đăng ký cụm sân mới.");
     }
 
-    public async Task<IActionResult> OnPostUpdateVenueAsync(VenueUpsertDto venueForm, string? date)
+    public async Task<IActionResult> OnPostUpdateVenueAsync(
+        VenueUpsertDto venueForm,
+        string? date,
+        IFormFile? coverPhoto,
+        List<IFormFile>? galleryPhotos)
     {
         int? userId = User.GetUserId();
         if (userId is null)
@@ -164,6 +220,67 @@ public class IndexModel : PageModel
         string formattedDate = SelectedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         NormalizeVenueForm(venueForm);
+        // Edit Venue always posts hidden GalleryImageUrls; treat null (empty input) as cleared gallery.
+        List<string> existingGallery = ParseGalleryUrls(venueForm.GalleryImageUrls);
+        venueForm.GalleryImageUrls = string.Join(';', existingGallery.Take(MaxVenueGalleryPhotos));
+
+        if (coverPhoto is { Length: > 0 })
+        {
+            ServiceResult<string> coverResult = await _photoStorage.SavePhotoAsync(
+                coverPhoto,
+                "venues",
+                HttpContext.RequestAborted);
+            if (!coverResult.Succeeded || string.IsNullOrWhiteSpace(coverResult.Data))
+            {
+                return await RenderUpdateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    coverResult.ErrorMessage ?? "Không thể lưu ảnh bìa cụm sân.");
+            }
+
+            venueForm.CoverImageUrl = coverResult.Data;
+        }
+
+        if (galleryPhotos is { Count: > 0 })
+        {
+            int remainingCapacity = MaxVenueGalleryPhotos - existingGallery.Count;
+            if (remainingCapacity <= 0)
+            {
+                return await RenderUpdateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    $"Thư viện ảnh cụm sân tối đa {MaxVenueGalleryPhotos} ảnh. Hãy xóa bớt ảnh cũ trước khi tải thêm.");
+            }
+
+            if (galleryPhotos.Count > remainingCapacity)
+            {
+                return await RenderUpdateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    $"Thư viện ảnh tối đa {MaxVenueGalleryPhotos} ảnh (chỉ có thể thêm tối đa {remainingCapacity} ảnh nữa).");
+            }
+
+            ServiceResult<List<string>> galleryResult = await _photoStorage.SavePhotosAsync(
+                galleryPhotos,
+                "venues",
+                remainingCapacity,
+                HttpContext.RequestAborted);
+            if (!galleryResult.Succeeded)
+            {
+                return await RenderUpdateVenueErrorAsync(
+                    userId.Value,
+                    venueForm,
+                    galleryResult.ErrorMessage ?? "Không thể lưu thư viện ảnh cụm sân.");
+            }
+
+            List<string> mergedGallery = existingGallery
+                .Concat(galleryResult.Data ?? Enumerable.Empty<string>())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxVenueGalleryPhotos)
+                .ToList();
+
+            venueForm.GalleryImageUrls = string.Join(';', mergedGallery);
+        }
 
         ServiceResult<Venue> result = await _venueService.UpdateVenueAsync(
             userId.Value,
@@ -182,22 +299,10 @@ public class IndexModel : PageModel
             });
         }
 
-        TempData["ToastError"] = result.ErrorMessage ?? "Không thể cập nhật thông tin cụm sân.";
-        Portal = await _bookingService.GetOwnerPortalAsync(
+        return await RenderUpdateVenueErrorAsync(
             userId.Value,
-            User.IsAdmin(),
-            venueForm.Id,
-            SelectedDate,
-            HttpContext.RequestAborted);
-        ActiveTab = "settings";
-        ShowNewVenueForm = false;
-        VenueForm = venueForm;
-        if (Portal.SelectedVenue is not null)
-        {
-            CourtForm = CreateDefaultCourtForm(Portal.SelectedVenue.Id, Portal.VenueCourts.Count + 1);
-        }
-
-        return Page();
+            venueForm,
+            result.ErrorMessage ?? "Không thể cập nhật thông tin cụm sân.");
     }
 
     public async Task<IActionResult> OnPostCheckInAsync(int bookingId, int venueId, string? date)
@@ -302,7 +407,11 @@ public class IndexModel : PageModel
         });
     }
 
-    public async Task<IActionResult> OnPostSaveCourtAsync(CourtUpsertDto courtForm, string? date)
+    public async Task<IActionResult> OnPostSaveCourtAsync(
+        CourtUpsertDto courtForm,
+        string? date,
+        IFormFile? courtPhoto,
+        bool removeCourtPhoto = false)
     {
         int? actorUserId = User.GetUserId();
         if (actorUserId is null)
@@ -316,8 +425,33 @@ public class IndexModel : PageModel
         courtForm.Code = (courtForm.Code ?? string.Empty).Trim().ToUpperInvariant();
         courtForm.Name = (courtForm.Name ?? string.Empty).Trim();
         courtForm.Surface = (courtForm.Surface ?? string.Empty).Trim();
+        courtForm.ImageUrl = string.IsNullOrWhiteSpace(courtForm.ImageUrl) ? null : courtForm.ImageUrl.Trim();
 
         bool isUpdate = courtForm.Id.HasValue && courtForm.Id.Value > 0;
+
+        if (courtPhoto is { Length: > 0 })
+        {
+            ServiceResult<string> photoResult = await _photoStorage.SavePhotoAsync(
+                courtPhoto,
+                "courts",
+                HttpContext.RequestAborted);
+            if (!photoResult.Succeeded || string.IsNullOrWhiteSpace(photoResult.Data))
+            {
+                return await RenderSaveCourtErrorAsync(
+                    actorUserId.Value,
+                    courtForm,
+                    isUpdate,
+                    removeCourtPhoto,
+                    photoResult.ErrorMessage ?? "Không thể lưu ảnh sân.");
+            }
+
+            courtForm.ImageUrl = photoResult.Data;
+        }
+        else if (removeCourtPhoto)
+        {
+            courtForm.ImageUrl = string.Empty;
+        }
+
         ServiceResult<Court> result = isUpdate
             ? await _courtService.UpdateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted)
             : await _courtService.CreateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted);
@@ -336,9 +470,90 @@ public class IndexModel : PageModel
             });
         }
 
-        TempData["ToastError"] = result.ErrorMessage ?? "Không thể lưu thông tin sân.";
-        Portal = await _bookingService.GetOwnerPortalAsync(
+        return await RenderSaveCourtErrorAsync(
             actorUserId.Value,
+            courtForm,
+            isUpdate,
+            removeCourtPhoto,
+            result.ErrorMessage ?? "Không thể lưu thông tin sân.");
+    }
+
+    public static List<string> ParseGalleryUrls(string? galleryImageUrls)
+    {
+        if (string.IsNullOrWhiteSpace(galleryImageUrls))
+        {
+            return new List<string>();
+        }
+
+        string[] parts = galleryImageUrls.Split(
+            [';', '|'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var result = new List<string>(parts.Length);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string part in parts)
+        {
+            if (!string.IsNullOrWhiteSpace(part) && seen.Add(part))
+            {
+                result.Add(part);
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IActionResult> RenderCreateVenueErrorAsync(
+        int userId,
+        VenueUpsertDto venueForm,
+        string errorMessage)
+    {
+        TempData["ToastError"] = errorMessage;
+        SelectedDate = GetVietnamToday();
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            userId,
+            User.IsAdmin(),
+            null,
+            SelectedDate,
+            HttpContext.RequestAborted);
+        ShowNewVenueForm = true;
+        VenueForm = venueForm;
+        return Page();
+    }
+
+    private async Task<IActionResult> RenderUpdateVenueErrorAsync(
+        int userId,
+        VenueUpsertDto venueForm,
+        string errorMessage)
+    {
+        TempData["ToastError"] = errorMessage;
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            userId,
+            User.IsAdmin(),
+            venueForm.Id,
+            SelectedDate,
+            HttpContext.RequestAborted);
+        ActiveTab = "settings";
+        ShowNewVenueForm = false;
+        VenueForm = venueForm;
+        if (Portal.SelectedVenue is not null)
+        {
+            CourtForm = CreateDefaultCourtForm(Portal.SelectedVenue.Id, Portal.VenueCourts.Count + 1);
+        }
+
+        return Page();
+    }
+
+    private async Task<IActionResult> RenderSaveCourtErrorAsync(
+        int actorUserId,
+        CourtUpsertDto courtForm,
+        bool isUpdate,
+        bool removeCourtPhoto,
+        string errorMessage)
+    {
+        TempData["ToastError"] = errorMessage;
+        Portal = await _bookingService.GetOwnerPortalAsync(
+            actorUserId,
             User.IsAdmin(),
             courtForm.VenueId > 0 ? courtForm.VenueId : null,
             SelectedDate,
@@ -346,6 +561,7 @@ public class IndexModel : PageModel
         ActiveTab = "courts";
         ShowNewVenueForm = false;
         EditCourtId = isUpdate ? courtForm.Id : null;
+        RemoveCourtPhotoState = removeCourtPhoto && string.IsNullOrEmpty(courtForm.ImageUrl);
         CourtForm = courtForm;
         if (Portal.SelectedVenue is not null)
         {
@@ -371,6 +587,8 @@ public class IndexModel : PageModel
         PhoneNumber = venue.PhoneNumber,
         Description = venue.Description,
         AccentColor = string.IsNullOrWhiteSpace(venue.AccentColor) ? "emerald" : venue.AccentColor,
+        CoverImageUrl = venue.CoverImageUrl,
+        GalleryImageUrls = string.Join(';', ParseGalleryUrls(venue.GalleryImageUrls)),
         OpenHour = venue.OpenHour,
         CloseHour = venue.CloseHour
     };

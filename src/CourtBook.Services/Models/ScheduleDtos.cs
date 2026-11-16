@@ -35,6 +35,7 @@ public class CourtRowDto
     public SportType SportType { get; set; }
     public bool IsIndoor { get; set; }
     public string Surface { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public decimal BasePricePerHour { get; set; }
     public decimal PeakPricePerHour { get; set; }
     public bool IsActive { get; set; }
@@ -70,6 +71,9 @@ public class ScheduleMatrixDto
     public string VenueDistrict { get; set; } = string.Empty;
     public string VenueAddress { get; set; } = string.Empty;
     public string VenuePhone { get; set; } = string.Empty;
+    public string VenueDescription { get; set; } = string.Empty;
+    public string VenueCoverImageUrl { get; set; } = string.Empty;
+    public IReadOnlyList<string> VenuePhotoUrls { get; set; } = Array.Empty<string>();
     public string OwnerName { get; set; } = string.Empty;
     public int OpenHour { get; set; } = 6;
     public int CloseHour { get; set; } = 22;

@@ -55,6 +55,7 @@ public class PlatformAdminService : IPlatformAdminService
                 Name = v.Name,
                 District = v.District,
                 Address = v.Address,
+                CoverImageUrl = v.CoverImageUrl,
                 OwnerId = v.OwnerId,
                 OwnerName = v.Owner?.FullName ?? string.Empty,
                 OwnerEmail = v.Owner?.Email ?? string.Empty,

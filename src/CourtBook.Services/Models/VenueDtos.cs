@@ -12,6 +12,9 @@ public class VenueCardDto
     public string PhoneNumber { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string AccentColor { get; set; } = "emerald";
+    public string CoverImageUrl { get; set; } = string.Empty;
+    public IReadOnlyList<string> PhotoUrls { get; set; } = Array.Empty<string>();
+    public int PhotoCount { get; set; }
     public string OwnerName { get; set; } = string.Empty;
     public int OpenHour { get; set; } = 6;
     public int CloseHour { get; set; } = 22;
@@ -43,6 +46,8 @@ public class VenueUpsertDto
     public string PhoneNumber { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string AccentColor { get; set; } = "emerald";
+    public string? CoverImageUrl { get; set; }
+    public string? GalleryImageUrls { get; set; }
     public int OpenHour { get; set; } = 6;
     public int CloseHour { get; set; } = 22;
 }

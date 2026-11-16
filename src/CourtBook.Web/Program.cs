@@ -4,6 +4,7 @@ using CourtBook.Services.Implementations;
 using CourtBook.Services.Interfaces;
 using CourtBook.Web.Hubs;
 using CourtBook.Web.Realtime;
+using CourtBook.Web.Services;
 using CourtBook.Web.Workers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ builder.Services.AddScoped<IVenueService, VenueService>();
 builder.Services.AddScoped<ICourtService, CourtService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IPlatformAdminService, PlatformAdminService>();
+builder.Services.AddScoped<IPhotoStorageService, LocalPhotoStorageService>();
 builder.Services.AddSingleton<ISlotRealtimeNotifier, SignalRSlotRealtimeNotifier>();
 
 // Background cleanup for 2-minute slot holds

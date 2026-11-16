@@ -116,8 +116,21 @@
 
                                 <tr>
                                     <td>
-                                        <div><strong>@v.Name</strong></div>
-                                        <div class="cb-table__sub">@v.District · @v.Address</div>
+                                        <div style="display:flex;align-items:center;gap:10px;">
+                                            @if (!string.IsNullOrWhiteSpace(v.CoverImageUrl))
+                                            {
+                                                <img src="@v.CoverImageUrl"
+                                                     alt="@v.Name"
+                                                     class="cb-admin-thumb"
+                                                     data-lightbox-src="@v.CoverImageUrl"
+                                                     data-lightbox-caption="@v.Name"
+                                                     title="Xem ảnh @v.Name" />
+                                            }
+                                            <div>
+                                                <div><strong>@v.Name</strong></div>
+                                                <div class="cb-table__sub">@v.District · @v.Address</div>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         <div>@v.OwnerName</div>

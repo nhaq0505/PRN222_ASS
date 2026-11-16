@@ -1,69 +1,114 @@
 @page
 @model IndexModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Khám phá cụm sân";
-    string? normalizedKeyword = string.IsNullOrWhiteSpace(Model.Browse.Keyword) ? null : Model.Browse.Keyword;
-    string? normalizedDistrict = string.IsNullOrWhiteSpace(Model.Browse.SelectedDistrict) ? null : Model.Browse.SelectedDistrict;
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    string? normalizedKeyword = string.IsNullOrWhiteSpace(Model.Browse.Keyword) ? null : Model.Browse.Keyword.Trim();
+    string? normalizedDistrict = string.IsNullOrWhiteSpace(Model.Browse.SelectedDistrict) ? null : Model.Browse.SelectedDistrict.Trim();
     bool hasActiveFilter = normalizedKeyword is not null
         || normalizedDistrict is not null
         || Model.Browse.SportFilter.HasValue;
 }
 
 <div class="cb-container">
-    <div class="cb-page-header">
-        <div>
-            <h1 class="cb-page-title">Khám phá cụm sân</h1>
-            <p class="cb-page-subtitle">@Model.Browse.TotalActiveVenues cụm sân đối tác · @Model.Browse.TotalActiveCourts sân mở đặt trực tuyến theo thời gian thực</p>
-        </div>
+    <section class="cb-discover-hero" aria-label="Tìm kiếm cụm sân thể thao">
+        <h1 class="cb-discover-title">Tìm &amp; đặt sân thể thao trực tuyến</h1>
 
-        <nav class="cb-segmented" aria-label="Lọc theo môn thể thao">
-            <a class="cb-segmented__item @(!Model.Browse.SportFilter.HasValue ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict })">Tất cả</a>
-            <a class="cb-segmented__item @(Model.Browse.SportFilter == SportType.Pickleball ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = SportType.Pickleball })">Pickleball</a>
-            <a class="cb-segmented__item @(Model.Browse.SportFilter == SportType.Badminton ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = SportType.Badminton })">Cầu lông</a>
-        </nav>
-    </div>
+        <form method="get" class="cb-search-pill" role="search" aria-label="Bộ lọc tìm sân">
+            <div class="cb-search-pill__segment cb-search-pill__segment--keyword">
+                <label class="cb-search-pill__label" for="qKeyword">Cụm sân / Địa chỉ</label>
+                <input id="qKeyword"
+                       type="text"
+                       name="keyword"
+                       value="@Model.Browse.Keyword"
+                       class="cb-search-pill__input"
+                       placeholder="Tìm tên sân, đường, phường..." />
+            </div>
 
-    <form method="get" class="cb-filter-bar">
-        <input type="text"
-               name="keyword"
-               value="@Model.Browse.Keyword"
-               class="cb-input"
-               placeholder="Tìm tên cụm sân, đường, phường..."
-               style="min-width:260px;" />
+            <span class="cb-search-pill__divider" aria-hidden="true"></span>
 
-        <select name="district"
-                class="cb-select"
-                onchange="this.form.submit()"
-                aria-label="Lọc theo khu vực">
-            <option value="">Tất cả khu vực</option>
+            <div class="cb-search-pill__segment cb-search-pill__segment--district">
+                <label class="cb-search-pill__label" for="qDistrict">Khu vực</label>
+                <select id="qDistrict" name="district" class="cb-search-pill__select">
+                    <option value="">Tất cả khu vực</option>
+                    @foreach (string d in Model.Browse.AvailableDistricts)
+                    {
+                        if (string.Equals(d, normalizedDistrict, StringComparison.OrdinalIgnoreCase))
+                        {
+                            <option value="@d" selected>@d</option>
+                        }
+                        else
+                        {
+                            <option value="@d">@d</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <span class="cb-search-pill__divider" aria-hidden="true"></span>
+
+            <div class="cb-search-pill__segment cb-search-pill__segment--sport">
+                <label class="cb-search-pill__label" for="qSport">Môn thể thao</label>
+                <select id="qSport" name="sport" class="cb-search-pill__select">
+                    <option value="">Tất cả môn</option>
+                    @if (Model.Browse.SportFilter == SportType.Pickleball)
+                    {
+                        <option value="@SportType.Pickleball" selected>Pickleball</option>
+                    }
+                    else
+                    {
+                        <option value="@SportType.Pickleball">Pickleball</option>
+                    }
+                    @if (Model.Browse.SportFilter == SportType.Badminton)
+                    {
+                        <option value="@SportType.Badminton" selected>Cầu lông</option>
+                    }
+                    else
+                    {
+                        <option value="@SportType.Badminton">Cầu lông</option>
+                    }
+                </select>
+            </div>
+
+            <button type="submit" class="cb-search-pill__btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.3-4.3"></path>
+                </svg>
+                <span>Tìm sân</span>
+            </button>
+        </form>
+    </section>
+
+    <div class="cb-discover-bar">
+        <nav class="cb-chip-list" aria-label="Lọc nhanh cụm sân">
+            <a class="cb-chip @(!Model.Browse.SportFilter.HasValue && normalizedDistrict is null ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword })">Tất cả</a>
+
+            <a class="cb-chip @(Model.Browse.SportFilter == SportType.Pickleball ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Pickleball ? (SportType?)null : SportType.Pickleball })">Pickleball</a>
+
+            <a class="cb-chip @(Model.Browse.SportFilter == SportType.Badminton ? "is-active" : "")"
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Badminton ? (SportType?)null : SportType.Badminton })">Cầu lông</a>
+
             @foreach (string d in Model.Browse.AvailableDistricts)
             {
-                if (string.Equals(d, Model.Browse.SelectedDistrict, StringComparison.OrdinalIgnoreCase))
-                {
-                    <option value="@d" selected>@d</option>
-                }
-                else
-                {
-                    <option value="@d">@d</option>
-                }
+                bool isDistrictActive = string.Equals(d, normalizedDistrict, StringComparison.OrdinalIgnoreCase);
+                <a class="cb-chip @(isDistrictActive ? "is-active" : "")"
+                   href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = isDistrictActive ? null : d, sport = Model.Browse.SportFilter })">@d</a>
             }
-        </select>
 
-        @if (Model.Browse.SportFilter.HasValue)
-        {
-            <input type="hidden" name="sport" value="@Model.Browse.SportFilter" />
-        }
+            @if (hasActiveFilter)
+            {
+                <a href="/" class="cb-chip cb-chip--clear">Xóa lọc</a>
+            }
+        </nav>
 
-        <button type="submit" class="cb-btn cb-btn--outline">Tìm sân</button>
-
-        @if (hasActiveFilter)
-        {
-            <a href="/" class="cb-btn cb-btn--ghost cb-btn--sm">Xóa lọc</a>
-        }
-    </form>
+        <div class="cb-discover-count">
+            @Model.Browse.Venues.Count cụm sân · @Model.Browse.TotalActiveCourts sân mở đặt trực tuyến
+        </div>
+    </div>
 
     @if (Model.Browse.Venues.Count == 0)
     {
@@ -78,32 +123,49 @@
         <div class="cb-venue-grid">
             @foreach (VenueCardDto v in Model.Browse.Venues)
             {
-                string accent = v.AccentColor switch
-                {
-                    "teal" or "blue" or "amber" or "emerald" => v.AccentColor,
-                    _ => "emerald"
-                };
-
-                string priceLabel = v.MaxPriceVnd <= 0
-                    ? "Đang cập nhật"
-                    : v.MinPriceVnd == v.MaxPriceVnd
-                        ? $"{v.MinPriceVnd / 1000:0}k / giờ"
-                        : $"{v.MinPriceVnd / 1000:0}k - {v.MaxPriceVnd / 1000:0}k / giờ";
-
                 <article class="cb-venue-card">
-                    <div class="cb-venue-card__cover cb-venue-card__cover--@accent">
-                        <span class="cb-badge">@v.District</span>
-                        <span class="cb-venue-card__price">@priceLabel</span>
-                    </div>
+                    <a href="/Venues/@v.Id" class="cb-venue-card__media" aria-label="Xem lịch đặt sân tại @v.Name">
+                        @if (!string.IsNullOrWhiteSpace(v.CoverImageUrl))
+                        {
+                            <img src="@v.CoverImageUrl" alt="@v.Name" class="cb-venue-card__img" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="cb-venue-card__placeholder" aria-hidden="true">
+                                <svg width="72" height="52" viewBox="0 0 72 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="4" y="4" width="64" height="44" rx="5" stroke="#16A34A" stroke-opacity="0.38" stroke-width="2" />
+                                    <line x1="36" y1="4" x2="36" y2="48" stroke="#16A34A" stroke-opacity="0.45" stroke-width="2" />
+                                    <line x1="22" y1="4" x2="22" y2="48" stroke="#16A34A" stroke-opacity="0.25" stroke-width="1.5" />
+                                    <line x1="50" y1="4" x2="50" y2="48" stroke="#16A34A" stroke-opacity="0.25" stroke-width="1.5" />
+                                    <line x1="4" y1="26" x2="22" y2="26" stroke="#16A34A" stroke-opacity="0.25" stroke-width="1.5" />
+                                    <line x1="50" y1="26" x2="68" y2="26" stroke="#16A34A" stroke-opacity="0.25" stroke-width="1.5" />
+                                </svg>
+                            </div>
+                        }
+
+                        <span class="cb-venue-card__floating-pill">
+                            <span class="cb-venue-card__floating-dot @(v.AvailableSlotsToday > 0 ? "" : "cb-venue-card__floating-dot--muted")" aria-hidden="true"></span>
+                            @(v.AvailableSlotsToday > 0 ? $"Còn {v.AvailableSlotsToday} ô trống hôm nay" : "Hết ô trống hôm nay")
+                        </span>
+
+                        @if (v.PhotoCount > 1)
+                        {
+                            <span class="cb-venue-card__photo-count">@v.PhotoCount ảnh</span>
+                        }
+                    </a>
 
                     <div class="cb-venue-card__body">
+                        <div class="cb-venue-card__eyebrow">
+                            <span>@v.District</span>
+                            <span>@($"{v.OpenHour:00}:00 - {v.CloseHour:00}:00")</span>
+                        </div>
+
                         <h2 class="cb-venue-card__title">
                             <a href="/Venues/@v.Id">@v.Name</a>
                         </h2>
-                        <div class="cb-venue-card__meta">@v.Address</div>
-                        <div class="cb-venue-card__meta">
-                            Chủ sân: <strong>@v.OwnerName</strong> · Mở cửa @($"{v.OpenHour:00}:00 - {v.CloseHour:00}:00")
-                        </div>
+
+                        <p class="cb-venue-card__address" title="@v.Address">@v.Address</p>
+
                         <div class="cb-venue-card__tags">
                             @if (v.PickleballCourtCount > 0)
                             {
@@ -113,19 +175,24 @@
                             {
                                 <span class="cb-badge cb-badge--badminton">@v.BadmintonCourtCount sân Cầu lông</span>
                             }
+                            <span class="cb-venue-card__owner">Chủ sân: @v.OwnerName</span>
                         </div>
-                    </div>
 
-                    <div class="cb-venue-card__footer">
-                        @if (v.AvailableSlotsToday > 0)
-                        {
-                            <span style="font-size:13px;color:#15803D;font-weight:600;">Còn @v.AvailableSlotsToday ô trống hôm nay</span>
-                        }
-                        else
-                        {
-                            <span style="font-size:13px;color:#64748B;font-weight:500;">Hết ô trống hôm nay</span>
-                        }
-                        <a href="/Venues/@v.Id" class="cb-btn cb-btn--primary cb-btn--sm">Xem lịch &amp; Đặt sân</a>
+                        <div class="cb-venue-card__bottom">
+                            <div class="cb-venue-card__price">
+                                @if (v.MinPriceVnd > 0)
+                                {
+                                    <span class="cb-venue-card__price-from">Từ</span>
+                                    <strong class="cb-venue-card__price-val cb-tabular">@($"{v.MinPriceVnd.ToString("N0", viCulture)}đ")</strong>
+                                    <span class="cb-venue-card__price-unit">/giờ</span>
+                                }
+                                else
+                                {
+                                    <span class="cb-venue-card__price-from">Đang cập nhật giá</span>
+                                }
+                            </div>
+                            <a href="/Venues/@v.Id" class="cb-btn cb-btn--primary cb-btn--sm">Đặt sân ngay</a>
+                        </div>
                     </div>
                 </article>
             }

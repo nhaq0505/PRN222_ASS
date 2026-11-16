@@ -43,6 +43,40 @@
         </nav>
     </div>
 
+    @if (Model.Matrix.VenuePhotoUrls.Count > 0)
+    {
+        IReadOnlyList<string> venuePhotos = Model.Matrix.VenuePhotoUrls;
+        List<string> sidePhotos = venuePhotos.Skip(1).Take(2).ToList();
+        <section class="cb-venue-gallery @(venuePhotos.Count == 1 ? "cb-venue-gallery--single" : "")"
+                 aria-label="Thư viện ảnh @Model.Matrix.VenueName">
+            <div class="cb-venue-gallery__main">
+                <button type="button"
+                        class="cb-venue-gallery__item"
+                        data-lightbox-src="@venuePhotos[0]"
+                        data-lightbox-caption="@Model.Matrix.VenueName"
+                        title="Xem ảnh @Model.Matrix.VenueName">
+                    <img src="@venuePhotos[0]" alt="@Model.Matrix.VenueName" />
+                </button>
+            </div>
+            @if (sidePhotos.Count > 0)
+            {
+                <div class="cb-venue-gallery__side">
+                    @for (int i = 0; i < sidePhotos.Count; i++)
+                    {
+                        string sidePhotoUrl = sidePhotos[i];
+                        <button type="button"
+                                class="cb-venue-gallery__item"
+                                data-lightbox-src="@sidePhotoUrl"
+                                data-lightbox-caption="@($"{Model.Matrix.VenueName} · Ảnh {i + 2}")"
+                                title="Xem ảnh @Model.Matrix.VenueName">
+                            <img src="@sidePhotoUrl" alt="@Model.Matrix.VenueName - ảnh @(i + 2)" />
+                        </button>
+                    }
+                </div>
+            }
+        </section>
+    }
+
     <div class="cb-toolbar">
         <div class="cb-date-strip" role="navigation" aria-label="Chọn ngày đặt sân">
             @foreach (CourtBook.Web.Pages.Venues.DetailsModel.DayTileViewModel d in Model.Days)
@@ -114,7 +148,18 @@
                             <tr>
                                 <td class="cb-court-cell">
                                     <div class="cb-court-cell__head">
-                                        <span class="cb-court-cell__name">@court.Name</span>
+                                        <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                                            @if (!string.IsNullOrEmpty(court.ImageUrl))
+                                            {
+                                                <img src="@court.ImageUrl"
+                                                     alt="@court.Name"
+                                                     class="cb-court-thumb"
+                                                     data-lightbox-src="@court.ImageUrl"
+                                                     data-lightbox-caption="@court.Name"
+                                                     title="Xem ảnh @court.Name" />
+                                            }
+                                            <span class="cb-court-cell__name">@court.Name</span>
+                                        </div>
                                         <span class="cb-badge @sportBadgeClass">@sportLabel</span>
                                     </div>
                                     <div class="cb-court-cell__meta">

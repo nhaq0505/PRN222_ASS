@@ -40,6 +40,8 @@ public class CourtBookDbContext : DbContext
             entity.Property(v => v.PhoneNumber).IsRequired().HasMaxLength(25);
             entity.Property(v => v.Description).IsRequired().HasMaxLength(600);
             entity.Property(v => v.AccentColor).IsRequired().HasMaxLength(30);
+            entity.Property(v => v.CoverImageUrl).IsRequired().HasMaxLength(500);
+            entity.Property(v => v.GalleryImageUrls).IsRequired().HasMaxLength(2000);
             entity.Property(v => v.Status).HasConversion<int>();
 
             entity.HasIndex(v => v.Slug).IsUnique();
@@ -59,6 +61,7 @@ public class CourtBookDbContext : DbContext
             entity.Property(c => c.Name).IsRequired().HasMaxLength(100);
             entity.Property(c => c.SportType).HasConversion<int>();
             entity.Property(c => c.Surface).IsRequired().HasMaxLength(100);
+            entity.Property(c => c.ImageUrl).HasMaxLength(500);
             entity.Property(c => c.BasePricePerHour).HasPrecision(18, 0);
             entity.Property(c => c.PeakPricePerHour).HasPrecision(18, 0);
 

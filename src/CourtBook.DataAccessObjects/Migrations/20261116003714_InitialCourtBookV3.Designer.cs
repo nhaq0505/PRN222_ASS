@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CourtBook.DataAccessObjects.Migrations
 {
     [DbContext(typeof(CourtBookDbContext))]
-    [Migration("20261115235715_InitialMultiOwnerCourtBook")]
-    partial class InitialMultiOwnerCourtBook
+    [Migration("20261116003714_InitialCourtBookV3")]
+    partial class InitialCourtBookV3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -157,6 +157,10 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -214,6 +218,11 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Property<int>("CloseHour")
                         .HasColumnType("int");
 
+                    b.Property<string>("CoverImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -226,6 +235,11 @@ namespace CourtBook.DataAccessObjects.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("GalleryImageUrls")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<string>("Name")
                         .IsRequired()
