@@ -1,0 +1,127 @@
+@page
+@model CourtBook.Web.Pages.Account.ProfileModel
+@{
+    ViewData["Title"] = "Hồ sơ cá nhân";
+    string roleLabel = Model.Profile.Role switch
+    {
+        CourtBook.BusinessObjects.Enums.UserRole.Admin => "Quản trị sàn",
+        CourtBook.BusinessObjects.Enums.UserRole.CourtOwner => "Chủ cụm sân",
+        _ => "Hội viên"
+    };
+    string roleBadgeClass = Model.Profile.Role switch
+    {
+        CourtBook.BusinessObjects.Enums.UserRole.Admin => "cb-badge--admin",
+        CourtBook.BusinessObjects.Enums.UserRole.CourtOwner => "cb-badge--owner",
+        _ => "cb-badge--member"
+    };
+}
+
+<main class="cb-main">
+    <div class="cb-container cb-container--narrow">
+        <header class="cb-page-header">
+            <div>
+                <h1 class="cb-page-title">Hồ sơ cá nhân</h1>
+                <p class="cb-page-subtitle">Quản lý thông tin tài khoản, mật khẩu và xem thống kê hoạt động trên CourtBook.</p>
+            </div>
+        </header>
+
+        <!-- KPI Cards -->
+        <div class="cb-kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
+            <div class="cb-kpi-card">
+                <span class="cb-kpi-card__label">Tổng lượt đặt sân</span>
+                <span class="cb-kpi-card__val cb-tabular">@Model.Profile.TotalBookingsCount</span>
+                <span class="cb-kpi-card__hint">Toàn thời gian</span>
+            </div>
+            <div class="cb-kpi-card">
+                <span class="cb-kpi-card__label">Lịch sắp tới</span>
+                <span class="cb-kpi-card__val cb-tabular" style="color: var(--cb-green);">@Model.Profile.ActiveBookingsCount</span>
+                <span class="cb-kpi-card__hint">Đã xác nhận / Chờ chơi</span>
+            </div>
+            <div class="cb-kpi-card">
+                <span class="cb-kpi-card__label">Tổng chi tiêu</span>
+                <span class="cb-kpi-card__val cb-tabular">@Model.Profile.TotalSpentVnd.ToString("N0") <small style="font-size: 13px;">đ</small></span>
+                <span class="cb-kpi-card__hint">Giá trị đặt sân thành công</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="cb-tabs" aria-label="Tab hồ sơ">
+            <a asp-page="/Account/Profile" asp-route-tab="info" class="cb-tab @(Model.ActiveTab == "info" ? "is-active" : "")">
+                Thông tin cá nhân
+            </a>
+            <a asp-page="/Account/Profile" asp-route-tab="password" class="cb-tab @(Model.ActiveTab == "password" ? "is-active" : "")">
+                Đổi mật khẩu
+            </a>
+        </nav>
+
+        @if (Model.ActiveTab == "info")
+        {
+            <div class="cb-card cb-card--pad" style="max-width: 600px;">
+                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--cb-border);">
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--cb-green); color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700;">
+                        @(string.IsNullOrEmpty(Model.Profile.FullName) ? "U" : Model.Profile.FullName[0].ToString().ToUpperInvariant())
+                    </div>
+                    <div>
+                        <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 700;">@Model.Profile.FullName</h2>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="cb-badge @roleBadgeClass">@roleLabel</span>
+                            <span style="font-size: 13px; color: var(--cb-ink-secondary);">Thành viên từ @Model.Profile.CreatedAtUtc.ToString("dd/MM/yyyy")</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" asp-page-handler="UpdateInfo">
+                    <div class="cb-form-group">
+                        <label class="cb-label">Địa chỉ Email</label>
+                        <input type="text" class="cb-input" value="@Model.Profile.Email" disabled readonly style="background: #F8FAFC; cursor: not-allowed;" />
+                        <span class="cb-form-hint">Email đăng nhập không thể thay đổi.</span>
+                    </div>
+
+                    <div class="cb-form-group">
+                        <label asp-for="UpdateForm.FullName" class="cb-label">Họ và tên <span style="color: red;">*</span></label>
+                        <input asp-for="UpdateForm.FullName" class="cb-input" placeholder="Nguyễn Văn A" required />
+                    </div>
+
+                    <div class="cb-form-group">
+                        <label asp-for="UpdateForm.PhoneNumber" class="cb-label">Số điện thoại <span style="color: red;">*</span></label>
+                        <input asp-for="UpdateForm.PhoneNumber" class="cb-input" placeholder="0901234567" required />
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <button type="submit" class="cb-btn cb-btn--primary">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        }
+        else if (Model.ActiveTab == "password")
+        {
+            <div class="cb-card cb-card--pad" style="max-width: 600px;">
+                <h2 style="margin: 0 0 16px; font-size: 17px; font-weight: 700;">Thay đổi mật khẩu tài khoản</h2>
+                <p style="font-size: 13.5px; color: var(--cb-ink-secondary); margin-bottom: 20px;">
+                    Để bảo mật, vui lòng chọn mật khẩu mới có tối thiểu 6 ký tự kết hợp chữ và số.
+                </p>
+
+                <form method="post" asp-page-handler="ChangePassword">
+                    <div class="cb-form-group">
+                        <label asp-for="PasswordForm.CurrentPassword" class="cb-label">Mật khẩu hiện tại <span style="color: red;">*</span></label>
+                        <input asp-for="PasswordForm.CurrentPassword" type="password" class="cb-input" required />
+                    </div>
+
+                    <div class="cb-form-group">
+                        <label asp-for="PasswordForm.NewPassword" class="cb-label">Mật khẩu mới <span style="color: red;">*</span></label>
+                        <input asp-for="PasswordForm.NewPassword" type="password" class="cb-input" placeholder="Tối thiểu 6 ký tự" required />
+                    </div>
+
+                    <div class="cb-form-group">
+                        <label asp-for="PasswordForm.ConfirmNewPassword" class="cb-label">Xác nhận mật khẩu mới <span style="color: red;">*</span></label>
+                        <input asp-for="PasswordForm.ConfirmNewPassword" type="password" class="cb-input" required />
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <button type="submit" class="cb-btn cb-btn--primary">Cập nhật mật khẩu</button>
+                    </div>
+                </form>
+            </div>
+        }
+    </div>
+</main>

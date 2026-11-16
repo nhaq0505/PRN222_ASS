@@ -16,15 +16,17 @@ public class IndexModel : PageModel
 
     public MarketplaceBrowseDto Browse { get; set; } = new();
 
-    public async Task OnGetAsync(string? keyword, string? district, SportType? sport)
+    public async Task OnGetAsync(string? keyword, string? district, SportType? sport, string? sortBy = null, decimal? maxPrice = null)
     {
         DateOnly todayVn = GetVietnamToday();
 
-        Browse = await _venueService.GetMarketplaceAsync(
+        Browse = await _venueService.GetMarketplaceAdvancedAsync(
             keyword,
             district,
             sport,
             todayVn,
+            sortBy,
+            maxPrice,
             HttpContext.RequestAborted);
     }
 

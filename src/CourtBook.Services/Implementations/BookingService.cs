@@ -270,10 +270,18 @@ public class BookingService : IBookingService
         }
     }
 
-    public async Task<ServiceResult<IReadOnlyList<BookingTicketDto>>> ConfirmMyHoldsAsync(
+    public Task<ServiceResult<IReadOnlyList<BookingTicketDto>>> ConfirmMyHoldsAsync(
         int userId,
         int venueId,
         string? notes = null,
+        CancellationToken ct = default)
+        => ConfirmMyHoldsAsync(userId, venueId, notes, "Tại sân", ct);
+
+    public async Task<ServiceResult<IReadOnlyList<BookingTicketDto>>> ConfirmMyHoldsAsync(
+        int userId,
+        int venueId,
+        string? notes,
+        string? paymentMethod,
         CancellationToken ct = default)
     {
         await SlotLock.WaitAsync(ct);
@@ -305,6 +313,7 @@ public class BookingService : IBookingService
             }
 
             string? cleanNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            string selectedPayment = string.IsNullOrWhiteSpace(paymentMethod) ? "Tại sân" : paymentMethod.Trim();
             var broadcasts = new List<SlotUpdateBroadcastDto>(activeHolds.Count);
 
             foreach (Booking hold in activeHolds)
@@ -312,6 +321,8 @@ public class BookingService : IBookingService
                 hold.Status = BookingStatus.Confirmed;
                 hold.ConfirmedAtUtc = utcNow;
                 hold.HoldExpiresAtUtc = null;
+                hold.PaymentMethod = selectedPayment;
+                hold.IsPaid = false; // Initial state pending owner payment verification or quick check-in
                 if (cleanNotes is not null)
                 {
                     hold.Notes = cleanNotes;
@@ -504,6 +515,7 @@ public class BookingService : IBookingService
         DateTime utcNow = GetUtcNow();
         booking.Status = BookingStatus.CheckedIn;
         booking.CheckedInAtUtc = utcNow;
+        booking.IsPaid = true;
         await _bookingRepository.UpdateAsync(booking, ct);
 
         await _notifier.NotifySlotUpdatedAsync(new SlotUpdateBroadcastDto
@@ -521,6 +533,112 @@ public class BookingService : IBookingService
         });
 
         return ServiceResult<BookingTicketDto>.Ok(MapTicket(booking, canCancel: false, canCheckIn: false));
+    }
+
+    public async Task<ServiceResult<bool>> TogglePaymentStatusAsync(
+        int bookingId,
+        int actorUserId,
+        bool isAdmin,
+        CancellationToken ct = default)
+    {
+        Booking? booking = await _bookingRepository.GetByIdAsync(bookingId, includeDetails: true, ct);
+        if (booking is null)
+        {
+            return ServiceResult<bool>.Fail("Không tìm thấy đơn đặt sân.");
+        }
+
+        int ownerId = booking.Court?.Venue?.OwnerId ?? 0;
+        if (!isAdmin && ownerId != actorUserId)
+        {
+            return ServiceResult<bool>.Fail("Bạn không có quyền thao tác trên đơn này.");
+        }
+
+        booking.IsPaid = !booking.IsPaid;
+        await _bookingRepository.UpdateAsync(booking, ct);
+        return ServiceResult<bool>.Ok(booking.IsPaid);
+    }
+
+    public async Task<ServiceResult<BookingTicketDto>> QuickCheckInByCodeAsync(
+        string bookingCode,
+        int actorUserId,
+        bool isAdmin,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(bookingCode))
+        {
+            return ServiceResult<BookingTicketDto>.Fail("Vui lòng nhập mã đặt sân.");
+        }
+
+        string cleanCode = bookingCode.Trim().ToUpperInvariant();
+        Booking? booking = await _bookingRepository.GetByCodeAsync(cleanCode, includeDetails: true, ct);
+        if (booking is null)
+        {
+            return ServiceResult<BookingTicketDto>.Fail($"Không tìm thấy đơn đặt sân với mã {cleanCode}.");
+        }
+
+        return await CheckInBookingAsync(booking.Id, actorUserId, isAdmin ? UserRole.Admin : UserRole.CourtOwner, ct);
+    }
+
+    public async Task<byte[]> ExportOwnerBookingsCsvAsync(
+        int venueId,
+        int actorUserId,
+        bool isAdmin,
+        DateOnly? fromDate = null,
+        DateOnly? toDate = null,
+        CancellationToken ct = default)
+    {
+        Venue? venue = await _venueRepository.GetByIdAsync(venueId, ct);
+        if (venue is null)
+        {
+            throw new InvalidOperationException("Không tìm thấy cụm sân.");
+        }
+
+        if (!isAdmin && venue.OwnerId != actorUserId)
+        {
+            throw new UnauthorizedAccessException("Bạn không có quyền xuất dữ liệu cụm sân này.");
+        }
+
+        List<Booking> bookings = await _bookingRepository.GetBookingsByVenueAsync(venueId, ct);
+        if (fromDate.HasValue)
+        {
+            bookings = bookings.Where(b => b.PlayDate >= fromDate.Value).ToList();
+        }
+        if (toDate.HasValue)
+        {
+            bookings = bookings.Where(b => b.PlayDate <= toDate.Value).ToList();
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Mã Đặt Sân,Tên Sân,Môn Thể Thao,Khách Hàng,Số Điện Thoại,Ngày Chơi,Khung Giờ,Giá Tiền (VND),Trạng Thái,Phương Thức TT,Thanh Toán,Ghi Chú,Thời Gian Đặt");
+
+        foreach (var b in bookings.OrderByDescending(b => b.PlayDate).ThenByDescending(b => b.StartHour))
+        {
+            string statusName = b.Status switch
+            {
+                BookingStatus.Confirmed => "Đã xác nhận",
+                BookingStatus.CheckedIn => "Đã check-in",
+                BookingStatus.Cancelled => "Đã hủy",
+                BookingStatus.Held => "Đang giữ chỗ",
+                _ => "Hết hạn"
+            };
+
+            string courtName = b.Court?.Name ?? $"Sân #{b.CourtId}";
+            string sport = b.Court?.SportType == SportType.Pickleball ? "Pickleball" : "Cầu lông";
+            string customer = b.User?.FullName ?? "N/A";
+            string phone = b.User?.PhoneNumber ?? "N/A";
+            string timeRange = $"{b.StartHour:D2}:00 - {b.StartHour + 1:D2}:00";
+            string isPaid = b.IsPaid ? "Đã thanh toán" : "Chưa thanh toán";
+            string notes = (b.Notes ?? "").Replace(",", " ").Replace("\r", " ").Replace("\n", " ");
+
+            sb.AppendLine($"{b.BookingCode},{courtName},{sport},{customer},{phone},{b.PlayDate:yyyy-MM-dd},{timeRange},{b.PriceVnd},{statusName},{b.PaymentMethod},{isPaid},{notes},{b.CreatedAtUtc:yyyy-MM-dd HH:mm}");
+        }
+
+        byte[] preamble = System.Text.Encoding.UTF8.GetPreamble();
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        byte[] result = new byte[preamble.Length + bytes.Length];
+        Buffer.BlockCopy(preamble, 0, result, 0, preamble.Length);
+        Buffer.BlockCopy(bytes, 0, result, preamble.Length, bytes.Length);
+        return result;
     }
 
     public async Task<int> ReleaseExpiredHoldsAsync(CancellationToken ct = default)
@@ -591,6 +709,14 @@ public class BookingService : IBookingService
             ? Math.Round(confirmedOrCheckedIn.Count / (activeCourtCount * (double)operatingHoursCount) * 100.0, 1)
             : 0.0;
 
+        List<Booking> allVenueBookings = await _bookingRepository.GetBookingsByVenueAsync(selectedVenue.Id, ct);
+        DateOnly monthStart = new DateOnly(selectedDate.Year, selectedDate.Month, 1);
+        DateOnly monthEnd = monthStart.AddMonths(1).AddDays(-1);
+        var monthBookings = allVenueBookings
+            .Where(b => b.PlayDate >= monthStart && b.PlayDate <= monthEnd && (b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn))
+            .ToList();
+        decimal monthRevenue = monthBookings.Sum(b => b.PriceVnd);
+
         int activeHolds = dateBookings.Count(b =>
             b.Status == BookingStatus.Held &&
             (b.HoldExpiresAtUtc == null || b.HoldExpiresAtUtc > utcNow));
@@ -613,6 +739,8 @@ public class BookingService : IBookingService
             TodayConfirmedCount = confirmedOrCheckedIn.Count,
             TodayCheckedInCount = checkedInCount,
             TodayRevenueVnd = revenue,
+            MonthRevenueVnd = monthRevenue,
+            MonthBookingsCount = monthBookings.Count,
             OccupancyPercent = occupancy,
             ActiveHoldsCount = activeHolds,
             DateBookings = tickets,
@@ -785,6 +913,8 @@ public class BookingService : IBookingService
         PriceVnd = b.PriceVnd,
         Status = b.Status,
         Notes = b.Notes,
+        PaymentMethod = b.PaymentMethod ?? "Tại sân",
+        IsPaid = b.IsPaid,
         CreatedAtUtc = AsUtc(b.CreatedAtUtc),
         CanCancel = canCancel,
         CanCheckIn = canCheckIn

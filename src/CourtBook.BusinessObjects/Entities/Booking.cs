@@ -16,6 +16,8 @@ public class Booking
     public BookingStatus Status { get; set; }
     public DateTime? HoldExpiresAtUtc { get; set; }
     public string? Notes { get; set; }
+    public string PaymentMethod { get; set; } = "Tại sân";
+    public bool IsPaid { get; set; } = false;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? ConfirmedAtUtc { get; set; }
     public DateTime? CheckedInAtUtc { get; set; }

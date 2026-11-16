@@ -13,6 +13,7 @@ public interface IBookingRepository
     Task<int> CountActiveHoldsByUserAsync(int userId, DateTime utcNow, int? venueId = null, CancellationToken ct = default);
     Task<List<Booking>> GetExpiredHoldsAsync(DateTime utcNow, CancellationToken ct = default);
     Task<List<Booking>> GetBookingsByUserAsync(int userId, CancellationToken ct = default);
+    Task<List<Booking>> GetBookingsByVenueAsync(int venueId, CancellationToken ct = default);
     Task<Booking> AddAsync(Booking booking, CancellationToken ct = default);
     Task<bool> TryAddSlotAsync(Booking booking, CancellationToken ct = default);
     Task UpdateAsync(Booking booking, CancellationToken ct = default);

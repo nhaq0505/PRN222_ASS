@@ -11,23 +11,56 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+string provider = builder.Configuration["DatabaseProvider"] ?? "Auto";
 string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Server=127.0.0.1,1433;Database=CourtBookDb;User Id=sa;Password=CourtBook@2026!;TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True";
+string sqliteConnectionString = builder.Configuration.GetConnectionString("SqliteConnection")
+    ?? "Data Source=CourtBook.db";
 
-builder.Services.AddDbContext<CourtBookDbContext>(options =>
-    options.UseSqlServer(connectionString));
+bool useSqlServer = false;
+if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+{
+    useSqlServer = true;
+}
+else if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))
+{
+    useSqlServer = false;
+}
+else
+{
+    useSqlServer = CanConnectToSqlServer(connectionString);
+    if (!useSqlServer)
+    {
+        Console.WriteLine("[CourtBook] SQL Server 1433 không phản hồi. Tự động chuyển sang SQLite (CourtBook.db) để chạy ngay.");
+    }
+}
+
+if (useSqlServer)
+{
+    Console.WriteLine("[CourtBook] Sử dụng cơ sở dữ liệu: Microsoft SQL Server");
+    builder.Services.AddDbContext<CourtBookDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
+else
+{
+    Console.WriteLine("[CourtBook] Sử dụng cơ sở dữ liệu: SQLite (" + sqliteConnectionString + ")");
+    builder.Services.AddDbContext<CourtBookDbContext>(options =>
+        options.UseSqlite(sqliteConnectionString));
+}
 
 // Layer 2: DAOs
 builder.Services.AddScoped<UserDao>();
 builder.Services.AddScoped<VenueDao>();
 builder.Services.AddScoped<CourtDao>();
 builder.Services.AddScoped<BookingDao>();
+builder.Services.AddScoped<VenueReviewDao>();
 
 // Layer 3: Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IVenueRepository, VenueRepository>();
 builder.Services.AddScoped<ICourtRepository, CourtRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IVenueReviewRepository, VenueReviewRepository>();
 
 // Layer 4: Services & Realtime
 builder.Services.AddSingleton(TimeProvider.System);
@@ -35,6 +68,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVenueService, VenueService>();
 builder.Services.AddScoped<ICourtService, CourtService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IVenueReviewService, VenueReviewService>();
 builder.Services.AddScoped<IPlatformAdminService, PlatformAdminService>();
 builder.Services.AddScoped<IPhotoStorageService, LocalPhotoStorageService>();
 builder.Services.AddSingleton<ISlotRealtimeNotifier, SignalRSlotRealtimeNotifier>();
@@ -88,3 +122,37 @@ app.MapRazorPages();
 app.MapHub<CourtHub>("/hubs/court");
 
 app.Run();
+
+static bool CanConnectToSqlServer(string connectionString)
+{
+    try
+    {
+        var scsb = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+        string host = scsb.DataSource;
+        int port = 1433;
+        if (host.Contains(','))
+        {
+            var parts = host.Split(',');
+            host = parts[0].Trim();
+            _ = int.TryParse(parts[1].Trim(), out port);
+        }
+        else if (host.Contains(':'))
+        {
+            var parts = host.Split(':');
+            host = parts[0].Trim();
+            _ = int.TryParse(parts[1].Trim(), out port);
+        }
+
+        using var client = new System.Net.Sockets.TcpClient();
+        var task = client.ConnectAsync(host, port);
+        if (!task.Wait(TimeSpan.FromMilliseconds(500)))
+        {
+            return false;
+        }
+        return client.Connected;
+    }
+    catch
+    {
+        return false;
+    }
+}
