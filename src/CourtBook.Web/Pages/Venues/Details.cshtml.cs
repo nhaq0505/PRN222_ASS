@@ -14,17 +14,22 @@ namespace CourtBook.Web.Pages.Venues;
 public class DetailsModel : PageModel
 {
     private readonly IBookingService _bookingService;
+    private readonly IVenueReviewService _reviewService;
 
-    public DetailsModel(IBookingService bookingService)
+    public DetailsModel(IBookingService bookingService, IVenueReviewService reviewService)
     {
         _bookingService = bookingService;
+        _reviewService = reviewService;
     }
 
     public ScheduleMatrixDto Matrix { get; set; } = new();
     public IReadOnlyList<DayTileViewModel> Days { get; set; } = Array.Empty<DayTileViewModel>();
+    public IReadOnlyList<VenueReviewDto> Reviews { get; set; } = Array.Empty<VenueReviewDto>();
+    public double AverageRating => Reviews.Count > 0 ? Math.Round(Reviews.Average(r => r.Rating), 1) : 5.0;
     public DateOnly SelectedDate { get; set; }
     public SportType? SportFilter { get; set; }
     public int? CurrentUserId { get; set; }
+    public bool IsOversightMode => User.IsAdmin() || (CurrentUserId.HasValue && Matrix.OwnerId == CurrentUserId.Value);
 
     public async Task<IActionResult> OnGetAsync(int id, string? date, SportType? sport)
     {
@@ -83,6 +88,7 @@ public class DetailsModel : PageModel
             });
         }
         Days = dayTiles;
+        Reviews = await _reviewService.GetVenueReviewsAsync(id, HttpContext.RequestAborted);
 
         return Page();
     }
@@ -145,7 +151,7 @@ public class DetailsModel : PageModel
         return new JsonResult(summary);
     }
 
-    public async Task<IActionResult> OnPostConfirmAsync(int id, string? notes, string? date, SportType? sport)
+    public async Task<IActionResult> OnPostConfirmAsync(int id, string? notes, string? date, SportType? sport, string? paymentMethod = "Tại sân")
     {
         int? userId = User.GetUserId();
         if (User.Identity?.IsAuthenticated != true || userId is null)
@@ -164,6 +170,7 @@ public class DetailsModel : PageModel
             userId.Value,
             id,
             normalizedNotes,
+            paymentMethod,
             HttpContext.RequestAborted);
 
         if (result.Succeeded)
@@ -175,6 +182,58 @@ public class DetailsModel : PageModel
 
         TempData["ToastError"] = result.ErrorMessage ?? "Không thể xác nhận đặt sân. Vui lòng thử lại.";
         return RedirectToPage("/Venues/Details", new { id, date, sport });
+    }
+
+    public async Task<IActionResult> OnPostAddReviewAsync(int id, int rating, string comment, string? date, SportType? sport)
+    {
+        int? userId = User.GetUserId();
+        if (User.Identity?.IsAuthenticated != true || userId is null)
+        {
+            string? returnUrl = Url.Page("/Venues/Details", new { id, date, sport });
+            return RedirectToPage("/Account/Login", new { ReturnUrl = returnUrl });
+        }
+
+        var req = new CreateReviewRequestDto
+        {
+            VenueId = id,
+            Rating = rating,
+            Comment = comment
+        };
+
+        var result = await _reviewService.AddReviewAsync(userId.Value, req, HttpContext.RequestAborted);
+        if (result.Succeeded)
+        {
+            TempData["ToastSuccess"] = "Cảm ơn bạn đã gửi đánh giá cụm sân!";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể gửi đánh giá.";
+        }
+
+        return RedirectToPage("/Venues/Details", new { id, date, sport });
+    }
+
+    public string FormatVietnamDateTime(DateTime utcDateTime)
+    {
+        DateTime normalizedUtc = utcDateTime.Kind == DateTimeKind.Local
+            ? utcDateTime.ToUniversalTime()
+            : DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
+
+        DateTime vnTime = normalizedUtc.AddHours(7);
+        foreach (string timeZoneId in new[] { "Asia/Ho_Chi_Minh", "SE Asia Standard Time" })
+        {
+            try
+            {
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                vnTime = TimeZoneInfo.ConvertTimeFromUtc(normalizedUtc, tz);
+                break;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+        }
+
+        return $"{vnTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)} (+07:00)";
     }
 
     private static DateOnly GetVietnamToday()

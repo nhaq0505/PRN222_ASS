@@ -225,7 +225,7 @@
             </div>
         }
 
-        <div class="cb-kpi-grid">
+        <div class="cb-kpi-grid cb-kpi-grid--5">
             <div class="cb-kpi-card">
                 <div class="cb-kpi-card__label">Đơn đặt trong ngày</div>
                 <div class="cb-kpi-card__value">@Model.Portal.TodayConfirmedCount</div>
@@ -235,6 +235,11 @@
                 <div class="cb-kpi-card__label">Thực thu hôm nay (Check-in)</div>
                 <div class="cb-kpi-card__value">@($"{Model.Portal.TodayRevenueVnd.ToString("N0", viCulture)}đ")</div>
                 <div class="cb-kpi-card__sub">Chờ thu (đã đặt): @($"{Model.Portal.TodayExpectedRevenueVnd.ToString("N0", viCulture)}đ") · Tổng đặt: @($"{Model.Portal.TodayTotalBookedValueVnd.ToString("N0", viCulture)}đ")</div>
+            </div>
+            <div class="cb-kpi-card">
+                <div class="cb-kpi-card__label">Doanh thu tháng này</div>
+                <div class="cb-kpi-card__value">@($"{Model.Portal.MonthRevenueVnd.ToString("N0", viCulture)}đ")</div>
+                <div class="cb-kpi-card__sub">Tổng @Model.Portal.MonthBookingsCount lượt đặt tháng @Model.SelectedDate.Month</div>
             </div>
             <div class="cb-kpi-card">
                 <div class="cb-kpi-card__label">Công suất lấp đầy</div>
@@ -265,6 +270,18 @@
 
         @if (Model.ActiveTab == "bookings")
         {
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <form method="post" asp-page-handler="QuickCheckIn" style="display: flex; align-items: center; gap: 8px; flex: 1; max-width: 480px;">
+                    <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                    <input type="hidden" name="date" value="@selectedDateStr" />
+                    <input type="text" name="bookingCode" class="cb-input" placeholder="🔍 Nhập mã đặt sân để check-in nhanh (VD: CB-20261116-0001)..." style="font-weight: 600;" required />
+                    <button type="submit" class="cb-btn cb-btn--primary" style="flex-shrink: 0;">Check-in</button>
+                </form>
+                <a asp-page-handler="ExportCsv" asp-route-venueId="@selectedVenue.Id" asp-route-date="@selectedDateStr" class="cb-btn cb-btn--outline cb-btn--sm">
+                    📥 Xuất báo cáo CSV
+                </a>
+            </div>
+
             <div class="cb-table-card">
                 @if (Model.Portal.DateBookings.Count == 0)
                 {
@@ -284,6 +301,7 @@
                                     <th>Sân</th>
                                     <th>Khách hàng</th>
                                     <th>Giá tiền</th>
+                                    <th>Thanh toán</th>
                                     <th>Trạng thái</th>
                                     <th>Thao tác</th>
                                 </tr>
@@ -329,6 +347,27 @@
                                             }
                                         </td>
                                         <td class="cb-tabular"><strong>@($"{b.PriceVnd.ToString("N0", viCulture)}đ")</strong></td>
+                                        <td>
+                                            @if (b.Status == BookingStatus.Confirmed)
+                                            {
+                                                <form method="post" asp-page-handler="TogglePayment" style="margin: 0; display: inline;">
+                                                    <input type="hidden" name="bookingId" value="@b.Id" />
+                                                    <input type="hidden" name="venueId" value="@selectedVenue.Id" />
+                                                    <input type="hidden" name="date" value="@selectedDateStr" />
+                                                    <button type="submit" class="cb-btn @(b.IsPaid ? "cb-btn--ghost" : "cb-btn--outline") cb-btn--sm" style="font-size: 11px; padding: 3px 8px; height: auto; min-height: 28px;" title="Bấm để cập nhật trạng thái thanh toán">
+                                                        @(b.IsPaid ? $"✅ Đã thu ({b.PaymentMethod})" : $"💵 Chưa thu ({b.PaymentMethod})")
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (b.Status == BookingStatus.CheckedIn)
+                                            {
+                                                <span class="cb-badge cb-badge--confirmed" title="Đơn đã check-in được tính là đã thanh toán">Đã thu (@b.PaymentMethod)</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="cb-table__sub" style="margin-top:0;">@b.PaymentMethod</span>
+                                            }
+                                        </td>
                                         <td><span class="cb-badge @statusClass">@statusLabel</span></td>
                                         <td>
                                             <div class="cb-table__actions">

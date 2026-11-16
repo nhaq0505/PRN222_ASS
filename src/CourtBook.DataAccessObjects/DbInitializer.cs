@@ -18,13 +18,42 @@ public static class DbInitializer
 
         if (context.Database.IsRelational())
         {
-            if (context.Database.GetMigrations().Any())
+            if (context.Database.IsSqlServer() && context.Database.GetMigrations().Any())
             {
                 await context.Database.MigrateAsync(cancellationToken);
             }
             else
             {
                 await context.Database.EnsureCreatedAsync(cancellationToken);
+
+                if (context.Database.IsSqlite())
+                {
+                    await context.Database.ExecuteSqlRawAsync(@"
+CREATE TABLE IF NOT EXISTS ""VenueReviews"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_VenueReviews"" PRIMARY KEY AUTOINCREMENT,
+    ""VenueId"" INTEGER NOT NULL,
+    ""UserId"" INTEGER NOT NULL,
+    ""Rating"" INTEGER NOT NULL,
+    ""Comment"" TEXT NOT NULL,
+    ""CreatedAtUtc"" TEXT NOT NULL,
+    CONSTRAINT ""FK_VenueReviews_Venues_VenueId"" FOREIGN KEY (""VenueId"") REFERENCES ""Venues"" (""Id"") ON DELETE CASCADE,
+    CONSTRAINT ""FK_VenueReviews_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS ""IX_VenueReviews_VenueId"" ON ""VenueReviews"" (""VenueId"");
+CREATE INDEX IF NOT EXISTS ""IX_VenueReviews_UserId"" ON ""VenueReviews"" (""UserId"");
+", cancellationToken);
+
+                    try
+                    {
+                        await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Bookings"" ADD COLUMN ""PaymentMethod"" TEXT NOT NULL DEFAULT 'Tại sân';", cancellationToken);
+                    }
+                    catch { }
+                    try
+                    {
+                        await context.Database.ExecuteSqlRawAsync(@"ALTER TABLE ""Bookings"" ADD COLUMN ""IsPaid"" INTEGER NOT NULL DEFAULT 0;", cancellationToken);
+                    }
+                    catch { }
+                }
             }
         }
         else
@@ -35,6 +64,7 @@ public static class DbInitializer
         await SeedUsersAsync(context, adminEmail, adminPassword, adminFullName, cancellationToken);
         await SeedVenuesAndCourtsAsync(context, cancellationToken);
         await SeedSampleBookingsAsync(context, cancellationToken);
+        await SeedSampleReviewsAsync(context, cancellationToken);
     }
 
     private static async Task SeedUsersAsync(
@@ -511,6 +541,8 @@ public static class DbInitializer
                 PriceVnd = court.GetPriceForHour(item.Hour),
                 Status = item.Status,
                 Notes = item.Notes,
+                PaymentMethod = "Tại sân",
+                IsPaid = item.Status == BookingStatus.CheckedIn,
                 CreatedAtUtc = nowUtc.AddHours(-3),
                 ConfirmedAtUtc = nowUtc.AddHours(-3),
                 CheckedInAtUtc = item.Status == BookingStatus.CheckedIn ? nowUtc.AddMinutes(-20) : null
@@ -523,6 +555,74 @@ public static class DbInitializer
             context.Bookings.AddRange(bookings);
             await context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private static async Task SeedSampleReviewsAsync(
+        CourtBookDbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (await context.VenueReviews.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        AppUser? an = await context.Users.FirstOrDefaultAsync(u => u.Email == "an@courtbook.vn", cancellationToken);
+        AppUser? binh = await context.Users.FirstOrDefaultAsync(u => u.Email == "binh@courtbook.vn", cancellationToken);
+        Venue? thaoDien = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "thao-dien-racquet-club", cancellationToken);
+        Venue? sala = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "sala-riverside-pickleball", cancellationToken);
+        Venue? pmh = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "phu-my-hung-sport-center", cancellationToken);
+
+        if (an is null || binh is null || thaoDien is null)
+        {
+            return;
+        }
+
+        var reviews = new List<VenueReview>
+        {
+            new()
+            {
+                VenueId = thaoDien.Id,
+                UserId = an.Id,
+                Rating = 5,
+                Comment = "Sân thảm Acrylic siêu bám, ánh sáng đèn LED không bị chói mắt. Nhân viên nhiệt tình, có chỗ đậu xe ô tô rất tiện!",
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-5)
+            },
+            new()
+            {
+                VenueId = thaoDien.Id,
+                UserId = binh.Id,
+                Rating = 5,
+                Comment = "Cụm sân Thảo Điền tuyệt vời, căn-tin nước mát lạnh, đặt lịch trực tuyến nhanh gọn. Sẽ ủng hộ dài lâu!",
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
+            }
+        };
+
+        if (sala is not null)
+        {
+            reviews.Add(new VenueReview
+            {
+                VenueId = sala.Id,
+                UserId = binh.Id,
+                Rating = 5,
+                Comment = "View sông Sala mát rượi, không khí thoáng đãng, chơi buổi chiều hoàng hôn cực chill!",
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-3)
+            });
+        }
+
+        if (pmh is not null)
+        {
+            reviews.Add(new VenueReview
+            {
+                VenueId = pmh.Id,
+                UserId = an.Id,
+                Rating = 4,
+                Comment = "Sân cầu lông sàn gỗ chuẩn thi đấu, sân pickleball cũng rất mới. Giá giờ thường hợp lý.",
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+            });
+        }
+
+        context.VenueReviews.AddRange(reviews);
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     private static DateTime GetVietnamNow()

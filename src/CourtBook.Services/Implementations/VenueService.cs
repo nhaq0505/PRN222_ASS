@@ -44,11 +44,21 @@ public class VenueService : IVenueService
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
-    public async Task<MarketplaceBrowseDto> GetMarketplaceAsync(
+    public Task<MarketplaceBrowseDto> GetMarketplaceAsync(
         string? keyword,
         string? district,
         SportType? sport,
         DateOnly todayVn,
+        CancellationToken ct = default)
+        => GetMarketplaceAdvancedAsync(keyword, district, sport, todayVn, null, null, ct);
+
+    public async Task<MarketplaceBrowseDto> GetMarketplaceAdvancedAsync(
+        string? keyword,
+        string? district,
+        SportType? sport,
+        DateOnly todayVn,
+        string? sortBy = null,
+        decimal? maxPrice = null,
         CancellationToken ct = default)
     {
         List<Venue> matchedVenues = await _venueRepository.GetMarketplaceVenuesAsync(keyword, district, sport, ct);
@@ -56,7 +66,8 @@ public class VenueService : IVenueService
 
         bool hasFilter = !string.IsNullOrWhiteSpace(keyword) ||
                          !string.IsNullOrWhiteSpace(district) ||
-                         sport.HasValue;
+                         sport.HasValue ||
+                         maxPrice.HasValue;
 
         int totalActiveVenues = hasFilter
             ? (await _venueRepository.GetMarketplaceVenuesAsync(null, null, null, ct)).Count
@@ -89,9 +100,14 @@ public class VenueService : IVenueService
             decimal minPrice = priceSource.Count > 0
                 ? priceSource.Min(c => Math.Min(c.BasePricePerHour, c.PeakPricePerHour))
                 : 0m;
-            decimal maxPrice = priceSource.Count > 0
+            decimal maxPriceValue = priceSource.Count > 0
                 ? priceSource.Max(c => Math.Max(c.BasePricePerHour, c.PeakPricePerHour))
                 : 0m;
+
+            if (maxPrice.HasValue && minPrice > maxPrice.Value)
+            {
+                continue;
+            }
 
             int[] operatingHours = venue.GetOperatingHours();
             int[] futureHours = todayVn > currentDateVn
@@ -139,9 +155,23 @@ public class VenueService : IVenueService
                 BadmintonCourtCount = activeCourts.Count(c => c.SportType == SportType.Badminton),
                 TotalActiveCourts = activeCourts.Count,
                 MinPriceVnd = minPrice,
-                MaxPriceVnd = maxPrice,
-                AvailableSlotsToday = availableSlotsToday
+                MaxPriceVnd = maxPriceValue,
+                AvailableSlotsToday = availableSlotsToday,
+                AverageRating = venue.AverageRating,
+                ReviewCount = venue.ReviewCount
             });
+        }
+
+        if (!string.IsNullOrWhiteSpace(sortBy))
+        {
+            cards = sortBy.ToLowerInvariant() switch
+            {
+                "price-asc" => cards.OrderBy(c => c.MinPriceVnd).ToList(),
+                "price-desc" => cards.OrderByDescending(c => c.MinPriceVnd).ToList(),
+                "rating" => cards.OrderByDescending(c => c.AverageRating).ThenByDescending(c => c.ReviewCount).ToList(),
+                "courts" => cards.OrderByDescending(c => c.TotalActiveCourts).ToList(),
+                _ => cards
+            };
         }
 
         return new MarketplaceBrowseDto
@@ -149,6 +179,8 @@ public class VenueService : IVenueService
             Keyword = keyword?.Trim(),
             SelectedDistrict = district?.Trim(),
             SportFilter = sport,
+            SortBy = sortBy,
+            MaxPrice = maxPrice,
             AvailableDistricts = availableDistricts,
             Venues = cards,
             TotalActiveVenues = totalActiveVenues,

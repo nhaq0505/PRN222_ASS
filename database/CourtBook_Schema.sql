@@ -11,7 +11,7 @@ GO
 BEGIN TRANSACTION;
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE TABLE [Users] (
@@ -29,7 +29,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE TABLE [Venues] (
@@ -55,7 +55,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE TABLE [Courts] (
@@ -78,7 +78,25 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
+)
+BEGIN
+    CREATE TABLE [VenueReviews] (
+        [Id] int NOT NULL IDENTITY,
+        [VenueId] int NOT NULL,
+        [UserId] int NOT NULL,
+        [Rating] int NOT NULL,
+        [Comment] nvarchar(600) NOT NULL,
+        [CreatedAtUtc] datetime2 NOT NULL,
+        CONSTRAINT [PK_VenueReviews] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_VenueReviews_Users_UserId] FOREIGN KEY ([UserId]) REFERENCES [Users] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_VenueReviews_Venues_VenueId] FOREIGN KEY ([VenueId]) REFERENCES [Venues] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE TABLE [Bookings] (
@@ -92,6 +110,8 @@ BEGIN
         [Status] int NOT NULL,
         [HoldExpiresAtUtc] datetime2 NULL,
         [Notes] nvarchar(500) NULL,
+        [PaymentMethod] nvarchar(50) NOT NULL,
+        [IsPaid] bit NOT NULL,
         [CreatedAtUtc] datetime2 NOT NULL,
         [ConfirmedAtUtc] datetime2 NULL,
         [CheckedInAtUtc] datetime2 NULL,
@@ -104,7 +124,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Bookings_BookingCode] ON [Bookings] ([BookingCode]);
@@ -112,7 +132,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     EXEC(N'CREATE UNIQUE INDEX [IX_Bookings_CourtId_PlayDate_StartHour] ON [Bookings] ([CourtId], [PlayDate], [StartHour]) WHERE [Status] IN (1, 2, 3)');
@@ -120,7 +140,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE INDEX [IX_Bookings_PlayDate] ON [Bookings] ([PlayDate]);
@@ -128,7 +148,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE INDEX [IX_Bookings_UserId_Status] ON [Bookings] ([UserId], [Status]);
@@ -136,7 +156,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Courts_VenueId_Code] ON [Courts] ([VenueId], [Code]);
@@ -144,7 +164,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE INDEX [IX_Courts_VenueId_DisplayOrder] ON [Courts] ([VenueId], [DisplayOrder]);
@@ -152,7 +172,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Users_Email] ON [Users] ([Email]);
@@ -160,7 +180,23 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
+)
+BEGIN
+    CREATE INDEX [IX_VenueReviews_UserId] ON [VenueReviews] ([UserId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
+)
+BEGIN
+    CREATE INDEX [IX_VenueReviews_VenueId] ON [VenueReviews] ([VenueId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE INDEX [IX_Venues_OwnerId] ON [Venues] ([OwnerId]);
@@ -168,7 +204,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_Venues_Slug] ON [Venues] ([Slug]);
@@ -176,7 +212,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     CREATE INDEX [IX_Venues_Status_District] ON [Venues] ([Status], [District]);
@@ -184,11 +220,11 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20261116003714_InitialCourtBookV3'
+    WHERE [MigrationId] = N'20261116064234_InitialCourtBookV6'
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20261116003714_InitialCourtBookV3', N'10.0.15');
+    VALUES (N'20261116064234_InitialCourtBookV6', N'10.0.15');
 END;
 
 COMMIT;

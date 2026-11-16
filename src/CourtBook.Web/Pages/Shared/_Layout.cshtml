@@ -72,13 +72,13 @@
 
                 @if (User.Identity?.IsAuthenticated == true)
                 {
-                    <div class="cb-user-pill">
+                    <a asp-page="/Account/Profile" class="cb-user-pill" title="Xem & chỉnh sửa hồ sơ cá nhân" style="text-decoration: none; cursor: pointer;">
                         <span class="cb-user-pill__name">@displayName</span>
                         @if (!string.IsNullOrEmpty(roleLabel))
                         {
                             <span class="cb-badge @roleBadgeClass">@roleLabel</span>
                         }
-                    </div>
+                    </a>
                     <form method="post" asp-page="/Account/Logout" class="cb-logout-form">
                         <button type="submit" class="cb-btn cb-btn--ghost cb-btn--sm">Đăng xuất</button>
                     </form>

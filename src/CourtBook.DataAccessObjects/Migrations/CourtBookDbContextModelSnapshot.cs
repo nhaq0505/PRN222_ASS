@@ -98,9 +98,17 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Property<DateTime?>("HoldExpiresAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsPaid")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateOnly>("PlayDate")
                         .HasColumnType("date");
@@ -274,6 +282,40 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.ToTable("Venues");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.VenueReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(600)
+                        .HasColumnType("nvarchar(600)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VenueId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VenueId");
+
+                    b.ToTable("VenueReviews");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Booking", b =>
                 {
                     b.HasOne("CourtBook.BusinessObjects.Entities.Court", "Court")
@@ -315,11 +357,32 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.VenueReview", b =>
+                {
+                    b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "User")
+                        .WithMany("Reviews")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CourtBook.BusinessObjects.Entities.Venue", "Venue")
+                        .WithMany("Reviews")
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Venue");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.AppUser", b =>
                 {
                     b.Navigation("Bookings");
 
                     b.Navigation("OwnedVenues");
+
+                    b.Navigation("Reviews");
                 });
 
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Court", b =>
@@ -330,6 +393,8 @@ namespace CourtBook.DataAccessObjects.Migrations
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Venue", b =>
                 {
                     b.Navigation("Courts");
+
+                    b.Navigation("Reviews");
                 });
 #pragma warning restore 612, 618
         }

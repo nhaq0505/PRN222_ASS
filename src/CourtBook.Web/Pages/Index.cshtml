@@ -6,9 +6,11 @@
     CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
     string? normalizedKeyword = string.IsNullOrWhiteSpace(Model.Browse.Keyword) ? null : Model.Browse.Keyword.Trim();
     string? normalizedDistrict = string.IsNullOrWhiteSpace(Model.Browse.SelectedDistrict) ? null : Model.Browse.SelectedDistrict.Trim();
+    string? normalizedSortBy = string.IsNullOrWhiteSpace(Model.Browse.SortBy) ? null : Model.Browse.SortBy.Trim();
     bool hasActiveFilter = normalizedKeyword is not null
         || normalizedDistrict is not null
-        || Model.Browse.SportFilter.HasValue;
+        || Model.Browse.SportFilter.HasValue
+        || normalizedSortBy is not null;
 }
 
 <div class="cb-container">
@@ -71,6 +73,19 @@
                 </select>
             </div>
 
+            <span class="cb-search-pill__divider" aria-hidden="true"></span>
+
+            <div class="cb-search-pill__segment cb-search-pill__segment--sort">
+                <label class="cb-search-pill__label" for="qSort">Sắp xếp</label>
+                <select id="qSort" name="sortBy" class="cb-search-pill__select">
+                    <option value="">Nổi bật</option>
+                    <option value="price-asc" selected="@(Model.Browse.SortBy == "price-asc")">Giá tăng dần</option>
+                    <option value="price-desc" selected="@(Model.Browse.SortBy == "price-desc")">Giá giảm dần</option>
+                    <option value="rating" selected="@(Model.Browse.SortBy == "rating")">Đánh giá cao</option>
+                    <option value="courts" selected="@(Model.Browse.SortBy == "courts")">Nhiều sân nhất</option>
+                </select>
+            </div>
+
             <button type="submit" class="cb-search-pill__btn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="11" cy="11" r="8"></circle>
@@ -84,19 +99,19 @@
     <div class="cb-discover-bar">
         <nav class="cb-chip-list" aria-label="Lọc nhanh cụm sân">
             <a class="cb-chip @(!Model.Browse.SportFilter.HasValue && normalizedDistrict is null ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword })">Tất cả</a>
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, sortBy = normalizedSortBy })">Tất cả</a>
 
             <a class="cb-chip @(Model.Browse.SportFilter == SportType.Pickleball ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Pickleball ? (SportType?)null : SportType.Pickleball })">Pickleball</a>
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Pickleball ? (SportType?)null : SportType.Pickleball, sortBy = normalizedSortBy })">Pickleball</a>
 
             <a class="cb-chip @(Model.Browse.SportFilter == SportType.Badminton ? "is-active" : "")"
-               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Badminton ? (SportType?)null : SportType.Badminton })">Cầu lông</a>
+               href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = normalizedDistrict, sport = Model.Browse.SportFilter == SportType.Badminton ? (SportType?)null : SportType.Badminton, sortBy = normalizedSortBy })">Cầu lông</a>
 
             @foreach (string d in Model.Browse.AvailableDistricts)
             {
                 bool isDistrictActive = string.Equals(d, normalizedDistrict, StringComparison.OrdinalIgnoreCase);
                 <a class="cb-chip @(isDistrictActive ? "is-active" : "")"
-                   href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = isDistrictActive ? null : d, sport = Model.Browse.SportFilter })">@d</a>
+                   href="@Url.Page("/Index", new { keyword = normalizedKeyword, district = isDistrictActive ? null : d, sport = Model.Browse.SportFilter, sortBy = normalizedSortBy })">@d</a>
             }
 
             @if (hasActiveFilter)
@@ -160,9 +175,16 @@
                             <span>@($"{v.OpenHour:00}:00 - {v.CloseHour:00}:00")</span>
                         </div>
 
-                        <h2 class="cb-venue-card__title">
-                            <a href="/Venues/@v.Id">@v.Name</a>
-                        </h2>
+                        <div class="cb-venue-card__head">
+                            <h2 class="cb-venue-card__title">
+                                <a href="/Venues/@v.Id">@v.Name</a>
+                            </h2>
+                            <div class="cb-venue-rating" title="@v.AverageRating.ToString("0.0", CultureInfo.InvariantCulture) / 5.0 sao (@v.ReviewCount đánh giá)">
+                                <span aria-hidden="true">⭐</span>
+                                <span>@v.AverageRating.ToString("0.0", CultureInfo.InvariantCulture)</span>
+                                <span class="cb-venue-rating__count">(@v.ReviewCount)</span>
+                            </div>
+                        </div>
 
                         <p class="cb-venue-card__address" title="@v.Address">@v.Address</p>
 

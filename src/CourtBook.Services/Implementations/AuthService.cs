@@ -3,6 +3,7 @@ using CourtBook.BusinessObjects.Entities;
 using CourtBook.BusinessObjects.Enums;
 using CourtBook.BusinessObjects.Security;
 using CourtBook.Repositories;
+using CourtBook.Services.Helpers;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 
@@ -11,10 +12,12 @@ namespace CourtBook.Services.Implementations;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
+    private readonly IBookingRepository? _bookingRepository;
 
-    public AuthService(IUserRepository userRepository)
+    public AuthService(IUserRepository userRepository, IBookingRepository? bookingRepository = null)
     {
         _userRepository = userRepository;
+        _bookingRepository = bookingRepository;
     }
 
     public async Task<ServiceResult<AuthUserDto>> AuthenticateAsync(
@@ -100,6 +103,116 @@ public class AuthService : IAuthService
     {
         AppUser? user = await _userRepository.GetByIdAsync(userId, ct);
         return user is null || !user.IsActive ? null : MapToDto(user);
+    }
+
+    public async Task<ServiceResult<UserProfileDto>> GetProfileAsync(int userId, CancellationToken ct = default)
+    {
+        AppUser? user = await _userRepository.GetByIdAsync(userId, ct);
+        if (user is null)
+        {
+            return ServiceResult<UserProfileDto>.Fail("Không tìm thấy thông tin tài khoản.");
+        }
+
+        int totalBookings = 0;
+        int activeBookings = 0;
+        decimal totalSpent = 0m;
+
+        if (_bookingRepository is not null)
+        {
+            List<Booking> userBookings = await _bookingRepository.GetBookingsByUserAsync(userId, ct);
+            totalBookings = userBookings.Count;
+            activeBookings = userBookings.Count(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn);
+            totalSpent = userBookings.Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn).Sum(b => b.PriceVnd);
+        }
+
+        var dto = new UserProfileDto
+        {
+            Id = user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            PhoneNumber = user.PhoneNumber,
+            Role = user.Role,
+            CreatedAtUtc = user.CreatedAtUtc.Kind == DateTimeKind.Utc
+                ? user.CreatedAtUtc
+                : DateTime.SpecifyKind(user.CreatedAtUtc, DateTimeKind.Utc),
+            TotalBookingsCount = totalBookings,
+            ActiveBookingsCount = activeBookings,
+            TotalSpentVnd = totalSpent
+        };
+
+        return ServiceResult<UserProfileDto>.Ok(dto);
+    }
+
+    public async Task<ServiceResult<bool>> UpdateProfileAsync(int userId, UpdateProfileRequestDto req, CancellationToken ct = default)
+    {
+        if (req is null)
+        {
+            return ServiceResult<bool>.Fail("Dữ liệu không hợp lệ.");
+        }
+
+        AppUser? user = await ActorGuard.GetActiveActorAsync(_userRepository, userId, ct);
+        if (user is null)
+        {
+            return ServiceResult<bool>.Fail(ActorGuard.InactiveOrMissingMessage);
+        }
+
+        string fullName = req.FullName?.Trim() ?? string.Empty;
+        string phone = req.PhoneNumber?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return ServiceResult<bool>.Fail("Họ và tên không được để trống.");
+        }
+
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 8)
+        {
+            return ServiceResult<bool>.Fail("Số điện thoại phải có ít nhất 8 chữ số.");
+        }
+
+        user.FullName = fullName;
+        user.PhoneNumber = phone;
+        await _userRepository.UpdateAsync(user, ct);
+
+        return ServiceResult<bool>.Ok(true);
+    }
+
+    public async Task<ServiceResult<bool>> ChangePasswordAsync(int userId, ChangePasswordRequestDto req, CancellationToken ct = default)
+    {
+        if (req is null)
+        {
+            return ServiceResult<bool>.Fail("Dữ liệu không hợp lệ.");
+        }
+
+        AppUser? user = await ActorGuard.GetActiveActorAsync(_userRepository, userId, ct);
+        if (user is null)
+        {
+            return ServiceResult<bool>.Fail(ActorGuard.InactiveOrMissingMessage);
+        }
+
+        if (string.IsNullOrEmpty(req.CurrentPassword))
+        {
+            return ServiceResult<bool>.Fail("Vui lòng nhập mật khẩu hiện tại.");
+        }
+
+        if (string.IsNullOrEmpty(req.NewPassword) || req.NewPassword.Length < 6)
+        {
+            return ServiceResult<bool>.Fail("Mật khẩu mới phải có ít nhất 6 ký tự.");
+        }
+
+        if (!string.Equals(req.NewPassword, req.ConfirmNewPassword))
+        {
+            return ServiceResult<bool>.Fail("Xác nhận mật khẩu mới không khớp.");
+        }
+
+        if (!PasswordHelper.VerifyPassword(req.CurrentPassword, user.PasswordHash))
+        {
+            return ServiceResult<bool>.Fail("Mật khẩu hiện tại không chính xác.");
+        }
+
+        user.PasswordHash = PasswordHelper.HashPassword(req.NewPassword);
+        await _userRepository.UpdateAsync(user, ct);
+
+        return ServiceResult<bool>.Ok(true);
     }
 
     public IReadOnlyList<DemoAccountDto> GetDemoAccounts() =>

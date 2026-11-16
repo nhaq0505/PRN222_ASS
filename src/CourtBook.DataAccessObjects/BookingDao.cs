@@ -224,6 +224,18 @@ public class BookingDao
             .ThenByDescending(b => b.Id)
             .ToListAsync(ct);
 
+    public Task<List<Booking>> GetBookingsByVenueAsync(int venueId, CancellationToken ct = default)
+        => _context.Bookings
+            .AsNoTracking()
+            .Include(b => b.Court)
+                .ThenInclude(c => c!.Venue)
+            .Include(b => b.User)
+            .Where(b => (b.Court != null && b.Court.VenueId == venueId) || _context.Courts.Any(c => c.Id == b.CourtId && c.VenueId == venueId))
+            .OrderByDescending(b => b.PlayDate)
+            .ThenByDescending(b => b.StartHour)
+            .ThenByDescending(b => b.Id)
+            .ToListAsync(ct);
+
     public async Task<Booking> AddAsync(Booking booking, CancellationToken ct = default)
     {
         _context.Bookings.Add(booking);
@@ -274,6 +286,12 @@ public class BookingDao
             // 2601 = Cannot insert duplicate key row with unique index
             // 2627 = Violation of UNIQUE KEY / PRIMARY KEY constraint
             return sqlEx.Number == 2601 || sqlEx.Number == 2627;
+        }
+
+        if (ex.InnerException is Microsoft.Data.Sqlite.SqliteException sqliteEx)
+        {
+            // 19 = SQLITE_CONSTRAINT (Unique constraint violation)
+            return sqliteEx.SqliteErrorCode == 19;
         }
 
         return false;

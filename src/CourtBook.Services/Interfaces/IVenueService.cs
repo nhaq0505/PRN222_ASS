@@ -13,6 +13,15 @@ public interface IVenueService
         DateOnly todayVn,
         CancellationToken ct = default);
 
+    Task<MarketplaceBrowseDto> GetMarketplaceAdvancedAsync(
+        string? keyword,
+        string? district,
+        SportType? sport,
+        DateOnly todayVn,
+        string? sortBy = null,
+        decimal? maxPrice = null,
+        CancellationToken ct = default);
+
     Task<Venue?> GetVenueByIdAsync(int venueId, CancellationToken ct = default);
 
     Task<IReadOnlyList<Venue>> GetOwnerVenuesAsync(int ownerUserId, CancellationToken ct = default);

@@ -77,10 +77,12 @@ public sealed class TestContextScope : IDisposable
     public IVenueRepository VenueRepository { get; }
     public ICourtRepository CourtRepository { get; }
     public IBookingRepository BookingRepository { get; }
+    public IVenueReviewRepository ReviewRepository { get; }
     public AuthService AuthService { get; }
     public VenueService VenueService { get; }
     public CourtService CourtService { get; }
     public BookingService BookingService { get; }
+    public VenueReviewService ReviewService { get; }
     public PlatformAdminService PlatformAdminService { get; }
 
     public TestContextScope(DateTimeOffset? initialUtcNow = null)
@@ -101,11 +103,13 @@ public sealed class TestContextScope : IDisposable
         VenueRepository = new VenueRepository(new VenueDao(Context));
         CourtRepository = new CourtRepository(new CourtDao(Context));
         BookingRepository = new BookingRepository(new BookingDao(Context));
+        ReviewRepository = new VenueReviewRepository(new VenueReviewDao(Context));
 
-        AuthService = new AuthService(UserRepository);
+        AuthService = new AuthService(UserRepository, BookingRepository);
         VenueService = new VenueService(VenueRepository, CourtRepository, BookingRepository, UserRepository, Notifier, TimeProvider);
         CourtService = new CourtService(CourtRepository, VenueRepository, UserRepository, BookingRepository, Notifier, TimeProvider);
         BookingService = new BookingService(BookingRepository, CourtRepository, VenueRepository, UserRepository, Notifier, TimeProvider);
+        ReviewService = new VenueReviewService(ReviewRepository, VenueRepository, UserRepository, TimeProvider);
         PlatformAdminService = new PlatformAdminService(VenueRepository, UserRepository, BookingRepository, Notifier, TimeProvider);
     }
 

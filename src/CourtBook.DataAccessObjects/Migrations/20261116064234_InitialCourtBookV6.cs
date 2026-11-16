@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CourtBook.DataAccessObjects.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCourtBookV3 : Migration
+    public partial class InitialCourtBookV6 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -92,6 +92,35 @@ namespace CourtBook.DataAccessObjects.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "VenueReviews",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    VenueId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    Rating = table.Column<int>(type: "int", nullable: false),
+                    Comment = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_VenueReviews", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_VenueReviews_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_VenueReviews_Venues_VenueId",
+                        column: x => x.VenueId,
+                        principalTable: "Venues",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Bookings",
                 columns: table => new
                 {
@@ -106,6 +135,8 @@ namespace CourtBook.DataAccessObjects.Migrations
                     Status = table.Column<int>(type: "int", nullable: false),
                     HoldExpiresAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Notes = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IsPaid = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ConfirmedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CheckedInAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -169,6 +200,16 @@ namespace CourtBook.DataAccessObjects.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_VenueReviews_UserId",
+                table: "VenueReviews",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_VenueReviews_VenueId",
+                table: "VenueReviews",
+                column: "VenueId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Venues_OwnerId",
                 table: "Venues",
                 column: "OwnerId");
@@ -190,6 +231,9 @@ namespace CourtBook.DataAccessObjects.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Bookings");
+
+            migrationBuilder.DropTable(
+                name: "VenueReviews");
 
             migrationBuilder.DropTable(
                 name: "Courts");

@@ -281,6 +281,12 @@ textarea {
     border-radius: 999px;
     background: var(--cb-bg);
     border: 1px solid var(--cb-border);
+    transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+
+a.cb-user-pill:hover {
+    border-color: var(--cb-border-strong);
+    background: var(--cb-surface);
 }
 
 .cb-user-pill__name {
@@ -858,7 +864,7 @@ textarea {
     left: 50%;
     transform: translateX(-50%) translateY(16px);
     z-index: 45;
-    max-width: 980px;
+    max-width: 1120px;
     width: calc(100% - 32px);
     background: var(--cb-surface);
     border: 1px solid var(--cb-border-strong);
@@ -923,8 +929,16 @@ textarea {
     margin-left: auto;
 }
 
+.cb-hold-bar__payment {
+    width: auto;
+    min-width: 170px;
+    height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 0.84rem !important;
+}
+
 .cb-hold-bar__note {
-    width: 180px;
+    width: 160px;
     height: 36px !important;
     font-size: 0.85rem !important;
 }
@@ -1071,6 +1085,18 @@ textarea {
     margin-bottom: 22px;
 }
 
+.cb-kpi-grid--5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.cb-kpi-grid--5 .cb-kpi-card {
+    padding: 16px 18px;
+}
+
+.cb-kpi-grid--5 .cb-kpi-card__value {
+    font-size: 1.4rem;
+}
+
 .cb-kpi-card {
     background: var(--cb-surface);
     border: 1px solid var(--cb-border);
@@ -1128,6 +1154,28 @@ textarea {
 
 .cb-card__body {
     padding: 20px;
+}
+
+.cb-card--pad {
+    padding: 22px 24px;
+}
+
+.cb-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.cb-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--cb-ink);
+}
+
+.cb-form-hint {
+    font-size: 0.78rem;
+    color: var(--cb-ink-secondary);
 }
 
 .cb-table-scroll {
@@ -1758,7 +1806,7 @@ textarea.cb-input,
 }
 
 .cb-search-pill {
-    max-width: 860px;
+    max-width: 980px;
     margin: 0 auto 18px;
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
@@ -1785,19 +1833,24 @@ textarea.cb-input,
 }
 
 .cb-search-pill__segment--keyword {
-    flex: 1.4;
+    flex: 1.45;
     min-width: 0;
     padding-right: 14px;
 }
 
 .cb-search-pill__segment--district {
     flex: 1;
-    padding: 0 16px;
+    padding: 0 14px;
 }
 
 .cb-search-pill__segment--sport {
     flex: 0.9;
-    padding: 0 16px;
+    padding: 0 14px;
+}
+
+.cb-search-pill__segment--sort {
+    flex: 0.95;
+    padding: 0 14px;
 }
 
 .cb-search-pill__label {
@@ -2048,6 +2101,30 @@ textarea.cb-input,
     justify-content: space-between;
     gap: 8px;
     font-variant-numeric: tabular-nums;
+}
+
+.cb-venue-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cb-venue-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #D97706;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.cb-venue-rating__count {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--cb-ink-secondary);
 }
 
 .cb-venue-card__title {
@@ -2522,6 +2599,12 @@ textarea.cb-input,
 /* =========================================================
    Responsive Adjustments
    ========================================================= */
+@media (max-width: 1179px) {
+    .cb-kpi-grid--5 {
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    }
+}
+
 @media (max-width: 1040px) {
     .cb-venue-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2531,6 +2614,10 @@ textarea.cb-input,
 @media (max-width: 1024px) {
     .cb-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cb-kpi-grid--5 {
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     }
 
     .cb-admin-courts-grid,
@@ -2586,7 +2673,8 @@ textarea.cb-input,
 
     .cb-search-pill__segment--keyword,
     .cb-search-pill__segment--district,
-    .cb-search-pill__segment--sport {
+    .cb-search-pill__segment--sport,
+    .cb-search-pill__segment--sort {
         flex: none;
         padding: 2px;
     }
@@ -2641,7 +2729,7 @@ textarea.cb-input,
     }
 }
 
-@media (max-width: 859px) {
+@media (max-width: 960px) {
     .cb-hold-bar {
         flex-wrap: wrap;
         padding: 12px 14px;
@@ -2665,7 +2753,8 @@ textarea.cb-input,
 }
 
 @media (max-width: 520px) {
-    .cb-kpi-grid {
+    .cb-kpi-grid,
+    .cb-kpi-grid--5 {
         grid-template-columns: 1fr;
     }
 
