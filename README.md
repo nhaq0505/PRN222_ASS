@@ -1,6 +1,11 @@
 # CourtBook — Sàn Đặt Sân Pickleball & Cầu Lông Đa Chủ Sân (Multi-Owner Marketplace)
 
-**CourtBook** là nền tảng sàn thương mại điện tử đặt sân **Pickleball & Cầu lông** theo mô hình **Multi-Owner Venue Marketplace**, xây dựng theo chuẩn kiến trúc **5-Layer Architecture (PRN222)** bằng **ASP.NET Core Razor Pages (.NET 10.0)**, **Entity Framework Core 10.0.15**, **SignalR Real-time**, và cơ chế cơ sở dữ liệu kép **SQL Server 2022 (`Auto`) / SQLite fallback**.
+[![.NET 8.0](https://img.shields.io/badge/.NET-8.0%20LTS-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![Tests](https://img.shields.io/badge/xUnit%20Tests-66%20Passed-22C55E?logo=xunit)](tests/CourtBook.Tests/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![VietQR](https://img.shields.io/badge/Payment-VietQR%20Napas%2024%2F7-005BAA)](https://vietqr.net/)
+
+**CourtBook** là nền tảng sàn thương mại điện tử đặt sân **Pickleball & Cầu lông** theo mô hình **Multi-Owner Venue Marketplace**, xây dựng theo chuẩn kiến trúc **5-Layer Architecture (PRN222)** bằng **ASP.NET Core Razor Pages (.NET 8 LTS)**, **SignalR Real-time**, hỗ trợ kép **SQLite & SQL Server 2022**.
 
 Nền tảng phân tách chặt chẽ **3 vai trò độc lập (`Member`, `CourtOwner`, `Admin`)**:
 - **Hội viên (`Member`)**: khám phá các cụm sân đang hoạt động theo từ khóa, khu vực, môn thể thao và sắp xếp nâng cao (`Giá tăng/giảm`, `Đánh giá cao`, `Nhiều sân nhất`); đặt lịch theo ma trận giờ trực tuyến từng cụm sân (`/Venues/{id}`) với giữ chỗ tạm thời 2 phút qua SignalR; chọn thanh toán **Tại sân** hoặc **Chuyển khoản VietQR** (kèm mã QR Napas 24/7 & vé điện tử có thể in); quản lý lịch đặt & tự hủy trước giờ chơi tối thiểu 2 tiếng tại `/MyBookings`; cập nhật hồ sơ & đổi mật khẩu tại `/Account/Profile`; gửi đánh giá 5 sao và nhận xét cho cụm sân.
