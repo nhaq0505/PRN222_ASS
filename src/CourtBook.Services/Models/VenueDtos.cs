@@ -24,6 +24,8 @@ public class VenueCardDto
     public decimal MinPriceVnd { get; set; }
     public decimal MaxPriceVnd { get; set; }
     public int AvailableSlotsToday { get; set; }
+    public double AverageRating { get; set; } = 5.0;
+    public int ReviewCount { get; set; }
 }
 
 public class MarketplaceBrowseDto
@@ -31,10 +33,30 @@ public class MarketplaceBrowseDto
     public string? Keyword { get; set; }
     public string? SelectedDistrict { get; set; }
     public SportType? SportFilter { get; set; }
+    public string? SortBy { get; set; }
+    public decimal? MaxPrice { get; set; }
     public IReadOnlyList<string> AvailableDistricts { get; set; } = Array.Empty<string>();
     public IReadOnlyList<VenueCardDto> Venues { get; set; } = Array.Empty<VenueCardDto>();
     public int TotalActiveVenues { get; set; }
     public int TotalActiveCourts { get; set; }
+}
+
+public class VenueReviewDto
+{
+    public int Id { get; set; }
+    public int VenueId { get; set; }
+    public int UserId { get; set; }
+    public string UserFullName { get; set; } = string.Empty;
+    public int Rating { get; set; } = 5;
+    public string Comment { get; set; } = string.Empty;
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public class CreateReviewRequestDto
+{
+    public int VenueId { get; set; }
+    public int Rating { get; set; } = 5;
+    public string Comment { get; set; } = string.Empty;
 }
 
 public class VenueUpsertDto

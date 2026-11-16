@@ -22,6 +22,10 @@ public class Venue
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<Court> Courts { get; set; } = new List<Court>();
+    public ICollection<VenueReview> Reviews { get; set; } = new List<VenueReview>();
+
+    public double AverageRating => Reviews.Count > 0 ? Math.Round(Reviews.Average(r => r.Rating), 1) : 5.0;
+    public int ReviewCount => Reviews.Count;
 
     /// <summary>
     /// Returns the operating start hours for this venue (e.g. 6..21 for 06:00 - 22:00).

@@ -82,11 +82,44 @@
                             <span>@ticket.TimeRangeLabel</span>
                             <span>·</span>
                             <span>@(ticket.IsIndoor ? "Trong nhà" : "Ngoài trời")</span>
+                            <span>·</span>
+                            <span style="font-weight: 500;">TT: @ticket.PaymentMethod</span>
+                            @if (ticket.IsPaid)
+                            {
+                                <span class="cb-badge cb-badge--confirmed" style="font-size: 11px; padding: 2px 6px;">Đã thanh toán</span>
+                            }
+                            else
+                            {
+                                <span class="cb-badge cb-badge--held" style="font-size: 11px; padding: 2px 6px;">Chưa thanh toán</span>
+                            }
                         </div>
                         @if (!string.IsNullOrWhiteSpace(ticket.Notes))
                         {
                             <p class="cb-ticket__notes">Ghi chú: @ticket.Notes</p>
                         }
+
+                        <!-- Collapsible Ticket & VietQR Modal/Drawer -->
+                        <details style="margin-top: 10px;">
+                            <summary style="font-size: 13px; font-weight: 600; color: var(--cb-green); cursor: pointer;">
+                                📱 Xem mã QR thanh toán VietQR &amp; Vé điện tử
+                            </summary>
+                            <div style="margin-top: 12px; padding: 14px; background: #F8FAFC; border: 1px solid var(--cb-border); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+                                <div style="text-align: center; background: white; padding: 8px; border: 1px solid var(--cb-border); border-radius: 6px;">
+                                    <img src="@ticket.VietQrUrl" alt="VietQR #@ticket.BookingCode" style="width: 140px; height: 140px; object-fit: contain; display: block;" loading="lazy" />
+                                    <span style="font-size: 11px; color: var(--cb-ink-secondary); margin-top: 4px; display: block;">Quét bằng app ngân hàng</span>
+                                </div>
+                                <div style="font-size: 13px; line-height: 1.6; min-width: 200px;">
+                                    <div><strong>Ngân hàng:</strong> MB Bank (Napas 24/7)</div>
+                                    <div><strong>Số tài khoản:</strong> <code style="font-size: 13px; font-weight: 700; color: var(--cb-ink);">0901000001</code></div>
+                                    <div><strong>Chủ tài khoản:</strong> COURTBOOK VN</div>
+                                    <div><strong>Số tiền:</strong> <strong style="color: var(--cb-green);">@($"{ticket.PriceVnd.ToString("N0", viCulture)}đ")</strong></div>
+                                    <div><strong>Nội dung CK:</strong> <code style="background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-weight: 700;">CB @ticket.BookingCode</code></div>
+                                    <div style="margin-top: 8px;">
+                                        <button type="button" class="cb-btn cb-btn--ghost cb-btn--sm" onclick="window.print()">🖨️ In vé điện tử</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
                     <div class="cb-ticket__side cb-ticket__actions">

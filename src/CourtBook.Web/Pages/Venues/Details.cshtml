@@ -198,6 +198,85 @@
         }
     </div>
 
+    <!-- Reviews & Feedback Section -->
+    <section class="cb-card cb-card--pad" style="margin-top: 28px; margin-bottom: 80px;" aria-label="Đánh giá từ khách chơi sân">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--cb-border);">
+            <div>
+                <h2 style="font-size: 19px; font-weight: 700; margin: 0 0 6px;">Đánh giá &amp; Nhận xét của người chơi</h2>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 24px; font-weight: 800; color: #D97706;">⭐ @Model.AverageRating.ToString("0.0")</span>
+                    <span style="font-size: 14px; color: var(--cb-ink-secondary);">trên 5.0 · @Model.Reviews.Count lượt đánh giá</span>
+                </div>
+            </div>
+        </div>
+
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div style="background: #F8FAFC; border: 1px solid var(--cb-border); border-radius: 10px; padding: 18px; margin-bottom: 24px;">
+                <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 12px;">Gửi đánh giá trải nghiệm của bạn</h3>
+                <form method="post" asp-page-handler="AddReview" asp-route-id="@Model.Matrix.VenueId">
+                    <input type="hidden" name="date" value="@selectedDateStr" />
+                    <input type="hidden" name="sport" value="@Model.SportFilter" />
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+                        <label class="cb-label" style="margin: 0;">Mức độ hài lòng:</label>
+                        <select name="rating" class="cb-input" style="width: auto; padding: 6px 12px;">
+                            <option value="5" selected>⭐⭐⭐⭐⭐ Tuyệt vời (5 sao)</option>
+                            <option value="4">⭐⭐⭐⭐ Rất tốt (4 sao)</option>
+                            <option value="3">⭐⭐⭐ Bình thường (3 sao)</option>
+                            <option value="2">⭐⭐ Tạm được (2 sao)</option>
+                            <option value="1">⭐ Cần cải thiện (1 sao)</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <textarea name="comment" class="cb-input" rows="3" placeholder="Chia sẻ cảm nhận về chất lượng mặt sân, đèn chiếu sáng, dịch vụ..." required maxlength="500"></textarea>
+                    </div>
+                    <button type="submit" class="cb-btn cb-btn--primary cb-btn--sm">Gửi đánh giá</button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <div style="background: #F8FAFC; border: 1px dashed var(--cb-border); border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 13.5px; color: var(--cb-ink-secondary);">
+                <span>Vui lòng <a href="/Account/Login?ReturnUrl=/Venues/@Model.Matrix.VenueId" style="color: var(--cb-green); font-weight: 600;">đăng nhập</a> để chia sẻ đánh giá của bạn về cụm sân này.</span>
+            </div>
+        }
+
+        @if (Model.Reviews.Count == 0)
+        {
+            <div style="text-align: center; padding: 24px; color: var(--cb-ink-secondary); font-size: 14px;">
+                Chưa có đánh giá nào cho cụm sân này. Hãy là người đầu tiên trải nghiệm và để lại nhận xét!
+            </div>
+        }
+        else
+        {
+            <div style="display: grid; gap: 14px;">
+                @foreach (var review in Model.Reviews)
+                {
+                    <div style="background: white; border: 1px solid var(--cb-border); border-radius: 8px; padding: 16px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 34px; height: 34px; border-radius: 50%; background: #E2E8F0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: var(--cb-ink);">
+                                    @(string.IsNullOrEmpty(review.UserFullName) ? "U" : review.UserFullName[0].ToString().ToUpperInvariant())
+                                </div>
+                                <div>
+                                    <strong style="font-size: 14px;">@review.UserFullName</strong>
+                                    <div style="color: #D97706; font-size: 12px;">
+                                        @for (int s = 1; s <= 5; s++)
+                                        {
+                                            <span>@(s <= review.Rating ? "★" : "☆")</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <span style="font-size: 12px; color: var(--cb-ink-secondary);">@review.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: var(--cb-ink);">@review.Comment</p>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
     <div id="holdStickyBar" class="cb-hold-bar @(Model.Matrix.MyHolds.Count > 0 ? "is-visible" : "")">
         <div class="cb-hold-bar__info">
             <span class="cb-badge cb-badge--held"><span id="holdCountBadge">@Model.Matrix.MyHolds.Count</span> khung giờ</span>
@@ -210,6 +289,10 @@
         <form method="post" asp-page-handler="Confirm" asp-route-id="@Model.Matrix.VenueId" class="cb-hold-bar__actions">
             <input type="hidden" name="date" value="@selectedDateStr" />
             <input type="hidden" name="sport" value="@Model.SportFilter" />
+            <select name="paymentMethod" class="cb-input" style="width: auto; padding: 6px 12px; font-size: 13px;" title="Phương thức thanh toán">
+                <option value="Tại sân">💵 Thanh toán tại sân</option>
+                <option value="Chuyển khoản VietQR">📱 Chuyển khoản VietQR</option>
+            </select>
             <input type="text" name="notes" class="cb-input cb-hold-bar__note" placeholder="Ghi chú (tùy chọn)" maxlength="120" />
             <strong id="holdTotalPrice" class="cb-hold-bar__total">@FormatVnd(Model.Matrix.MyHolds.TotalPriceVnd, viCulture)</strong>
             <button type="submit" class="cb-btn cb-btn--primary">Xác nhận đặt sân</button>

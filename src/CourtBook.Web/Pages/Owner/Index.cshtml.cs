@@ -375,6 +375,91 @@ public class IndexModel : PageModel
         });
     }
 
+    public async Task<IActionResult> OnGetExportCsvAsync(int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        try
+        {
+            byte[] csvBytes = await _bookingService.ExportOwnerBookingsCsvAsync(
+                venueId,
+                actorUserId.Value,
+                User.IsAdmin(),
+                null,
+                null,
+                HttpContext.RequestAborted);
+
+            return File(csvBytes, "text/csv; charset=utf-8", $"courtbook-venue-{venueId}-bookings.csv");
+        }
+        catch (Exception ex)
+        {
+            TempData["ToastError"] = ex.Message;
+            return RedirectToPage("/Owner/Index", new { venueId, date, tab = "bookings" });
+        }
+    }
+
+    public async Task<IActionResult> OnPostQuickCheckInAsync(string? bookingCode, int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        if (string.IsNullOrWhiteSpace(bookingCode))
+        {
+            TempData["ToastError"] = "Vui lòng nhập mã đặt sân cần check-in.";
+            return RedirectToPage("/Owner/Index", new { venueId, date, tab = "bookings" });
+        }
+
+        ServiceResult<BookingTicketDto> result = await _bookingService.QuickCheckInByCodeAsync(
+            bookingCode,
+            actorUserId.Value,
+            User.IsAdmin(),
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded && result.Data is not null)
+        {
+            TempData["ToastSuccess"] = $"Check-in thành công đơn #{result.Data.BookingCode} ({result.Data.CustomerName})!";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể check-in đơn này.";
+        }
+
+        return RedirectToPage("/Owner/Index", new { venueId, date, tab = "bookings" });
+    }
+
+    public async Task<IActionResult> OnPostTogglePaymentAsync(int bookingId, int venueId, string? date)
+    {
+        int? actorUserId = User.GetUserId();
+        if (actorUserId is null)
+        {
+            return Challenge();
+        }
+
+        ServiceResult<bool> result = await _bookingService.TogglePaymentStatusAsync(
+            bookingId,
+            actorUserId.Value,
+            User.IsAdmin(),
+            HttpContext.RequestAborted);
+
+        if (result.Succeeded)
+        {
+            TempData["ToastSuccess"] = result.Data ? "Đã cập nhật: Đã thanh toán." : "Đã cập nhật: Chưa thanh toán.";
+        }
+        else
+        {
+            TempData["ToastError"] = result.ErrorMessage ?? "Không thể cập nhật trạng thái thanh toán.";
+        }
+
+        return RedirectToPage("/Owner/Index", new { venueId, date, tab = "bookings" });
+    }
+
     public async Task<IActionResult> OnPostToggleCourtAsync(int courtId, int venueId, string? date)
     {
         int? actorUserId = User.GetUserId();

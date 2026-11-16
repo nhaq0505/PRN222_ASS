@@ -53,6 +53,11 @@
             <div class="cb-kpi-card__value">@($"{Model.Dashboard.TodayPlatformGmvVnd.ToString("N0", viCulture)}đ")</div>
             <div class="cb-kpi-card__sub">Đơn xác nhận &amp; đã check-in</div>
         </div>
+        <div class="cb-kpi-card" style="border-top: 3px solid var(--cb-green);">
+            <div class="cb-kpi-card__label">Hoa hồng sàn (10%)</div>
+            <div class="cb-kpi-card__value" style="color: var(--cb-green);">@($"{Model.Dashboard.TodayPlatformCommissionVnd.ToString("N0", viCulture)}đ")</div>
+            <div class="cb-kpi-card__sub">Tổng tích lũy: @($"{Model.Dashboard.TotalAllTimeCommissionVnd.ToString("N0", viCulture)}đ")</div>
+        </div>
     </div>
 
     <div class="cb-tabs" role="tablist" aria-label="Quản trị sàn">
@@ -200,6 +205,14 @@
     }
     else
     {
+        <div style="margin-bottom: 16px; max-width: 400px;">
+            <input type="text"
+                   id="userSearchInput"
+                   class="cb-input"
+                   placeholder="🔍 Tìm theo họ tên, email, số điện thoại..."
+                   onkeyup="filterUsersTable()" />
+        </div>
+
         <div class="cb-table-card">
             @if (Model.Dashboard.AllUsers.Count == 0)
             {
@@ -274,3 +287,18 @@
         </div>
     }
 </div>
+
+@section Scripts {
+    <script>
+        function filterUsersTable() {
+            var input = document.getElementById("userSearchInput");
+            if (!input) return;
+            var filter = input.value.toLowerCase();
+            var rows = document.querySelectorAll(".cb-table tbody tr");
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                row.style.display = text.indexOf(filter) > -1 ? "" : "none";
+            });
+        }
+    </script>
+}

@@ -43,6 +43,9 @@ public class BookingRepository : IBookingRepository
     public Task<List<Booking>> GetBookingsByUserAsync(int userId, CancellationToken ct = default)
         => _dao.GetBookingsByUserAsync(userId, ct);
 
+    public Task<List<Booking>> GetBookingsByVenueAsync(int venueId, CancellationToken ct = default)
+        => _dao.GetBookingsByVenueAsync(venueId, ct);
+
     public Task<Booking> AddAsync(Booking booking, CancellationToken ct = default)
         => _dao.AddAsync(booking, ct);
 

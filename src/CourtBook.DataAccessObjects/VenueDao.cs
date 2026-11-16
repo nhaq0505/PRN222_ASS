@@ -20,6 +20,8 @@ public class VenueDao
         => _context.Venues
             .Include(v => v.Owner)
             .Include(v => v.Courts)
+            .Include(v => v.Reviews)
+                .ThenInclude(r => r.User)
             .FirstOrDefaultAsync(v => v.Id == id, ct);
 
     public Task<Venue?> GetBySlugAsync(string slug, CancellationToken ct = default)
@@ -42,6 +44,7 @@ public class VenueDao
             .AsNoTracking()
             .Include(v => v.Owner)
             .Include(v => v.Courts)
+            .Include(v => v.Reviews)
             .Where(v => v.Status == VenueStatus.Active);
 
         if (!string.IsNullOrWhiteSpace(keyword))

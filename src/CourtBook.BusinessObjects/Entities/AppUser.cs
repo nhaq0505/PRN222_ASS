@@ -15,4 +15,5 @@ public class AppUser
 
     public ICollection<Venue> OwnedVenues { get; set; } = new List<Venue>();
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<VenueReview> Reviews { get; set; } = new List<VenueReview>();
 }

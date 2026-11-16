@@ -14,6 +14,7 @@ public class CourtBookDbContext : DbContext
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<Court> Courts => Set<Court>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<VenueReview> VenueReviews => Set<VenueReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,9 +89,17 @@ public class CourtBookDbContext : DbContext
 
             // Prevent double-booking for active slots (Held=1, Confirmed=2, CheckedIn=3)
             // while preserving Cancelled=4 and Expired=5 history rows.
-            entity.HasIndex(b => new { b.CourtId, b.PlayDate, b.StartHour })
-                .IsUnique()
-                .HasFilter("[Status] IN (1, 2, 3)");
+            var bookingSlotIndex = entity.HasIndex(b => new { b.CourtId, b.PlayDate, b.StartHour })
+                .IsUnique();
+
+            if (Database.IsSqlServer())
+            {
+                bookingSlotIndex.HasFilter("[Status] IN (1, 2, 3)");
+            }
+            else
+            {
+                bookingSlotIndex.HasFilter("Status IN (1, 2, 3)");
+            }
 
             entity.HasOne(b => b.Court)
                 .WithMany(c => c.Bookings)
@@ -100,6 +109,26 @@ public class CourtBookDbContext : DbContext
             entity.HasOne(b => b.User)
                 .WithMany(u => u.Bookings)
                 .HasForeignKey(b => b.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<VenueReview>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Comment).IsRequired().HasMaxLength(600);
+            entity.Property(r => r.Rating).IsRequired();
+
+            entity.HasIndex(r => r.VenueId);
+            entity.HasIndex(r => r.UserId);
+
+            entity.HasOne(r => r.Venue)
+                .WithMany(v => v.Reviews)
+                .HasForeignKey(r => r.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.User)
+                .WithMany(u => u.Reviews)
+                .HasForeignKey(r => r.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

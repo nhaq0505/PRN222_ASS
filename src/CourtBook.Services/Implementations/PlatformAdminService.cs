@@ -79,6 +79,13 @@ public class PlatformAdminService : IPlatformAdminService
             CreatedAtUtc = AsUtc(u.CreatedAtUtc)
         }).ToList();
 
+        decimal totalGmv = 0m;
+        foreach (var v in allVenues)
+        {
+            var vBookings = await _bookingRepository.GetBookingsByVenueAsync(v.Id, ct);
+            totalGmv += vBookings.Where(b => b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.CheckedIn).Sum(b => b.PriceVnd);
+        }
+
         return new PlatformAdminDashboardDto
         {
             SelectedDate = selectedDate,
@@ -89,6 +96,7 @@ public class PlatformAdminService : IPlatformAdminService
             TotalMembersCount = allUsers.Count(u => u.Role == UserRole.Member),
             TodayBookingsCount = validDateBookings.Count,
             TodayPlatformGmvVnd = validDateBookings.Sum(b => b.PriceVnd),
+            TotalAllTimeGmvVnd = totalGmv,
             AllVenues = venueRows,
             AllUsers = userRows
         };
