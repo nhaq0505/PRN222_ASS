@@ -30,6 +30,14 @@ namespace CourtBook.DataAccessObjects.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -56,8 +64,16 @@ namespace CourtBook.DataAccessObjects.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("PreferredDistrict")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int>("Role")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("WalletBalanceVnd")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
 
                     b.HasKey("Id");
 
@@ -194,6 +210,76 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.ToTable("Courts");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.FavoriteVenue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VenueId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VenueId");
+
+                    b.HasIndex("UserId", "VenueId")
+                        .IsUnique();
+
+                    b.ToTable("FavoriteVenues");
+                });
+
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.UserNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedAtUtc");
+
+                    b.ToTable("UserNotifications");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Venue", b =>
                 {
                     b.Property<int>("Id")
@@ -274,6 +360,87 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.ToTable("Venues");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.VenueReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comment")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Rating")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(5);
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VenueId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VenueId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("VenueReviews");
+                });
+
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.WalletTransaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountVnd")
+                        .HasPrecision(18)
+                        .HasColumnType("decimal(18,0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("ReferenceCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.ToTable("WalletTransactions");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Booking", b =>
                 {
                     b.HasOne("CourtBook.BusinessObjects.Entities.Court", "Court")
@@ -304,6 +471,36 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Navigation("Venue");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.FavoriteVenue", b =>
+                {
+                    b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "User")
+                        .WithMany("FavoriteVenues")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CourtBook.BusinessObjects.Entities.Venue", "Venue")
+                        .WithMany("Favorites")
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Venue");
+                });
+
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.UserNotification", b =>
+                {
+                    b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Venue", b =>
                 {
                     b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "Owner")
@@ -315,11 +512,49 @@ namespace CourtBook.DataAccessObjects.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.VenueReview", b =>
+                {
+                    b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "User")
+                        .WithMany("Reviews")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CourtBook.BusinessObjects.Entities.Venue", "Venue")
+                        .WithMany("Reviews")
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Venue");
+                });
+
+            modelBuilder.Entity("CourtBook.BusinessObjects.Entities.WalletTransaction", b =>
+                {
+                    b.HasOne("CourtBook.BusinessObjects.Entities.AppUser", "User")
+                        .WithMany("WalletTransactions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.AppUser", b =>
                 {
                     b.Navigation("Bookings");
 
+                    b.Navigation("FavoriteVenues");
+
+                    b.Navigation("Notifications");
+
                     b.Navigation("OwnedVenues");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("WalletTransactions");
                 });
 
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Court", b =>
@@ -330,6 +565,10 @@ namespace CourtBook.DataAccessObjects.Migrations
             modelBuilder.Entity("CourtBook.BusinessObjects.Entities.Venue", b =>
                 {
                     b.Navigation("Courts");
+
+                    b.Navigation("Favorites");
+
+                    b.Navigation("Reviews");
                 });
 #pragma warning restore 612, 618
         }

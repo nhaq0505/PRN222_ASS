@@ -5,6 +5,7 @@
         || path.Equals("/Index", StringComparison.OrdinalIgnoreCase)
         || path.StartsWith("/Venues", StringComparison.OrdinalIgnoreCase);
     bool isMyBookingsActive = path.StartsWith("/MyBookings", StringComparison.OrdinalIgnoreCase);
+    bool isProfileActive = path.StartsWith("/Profile", StringComparison.OrdinalIgnoreCase);
     bool isOwnerActive = path.StartsWith("/Owner", StringComparison.OrdinalIgnoreCase);
     bool isAdminActive = path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase);
 
@@ -79,6 +80,8 @@
                             <span class="cb-badge @roleBadgeClass">@roleLabel</span>
                         }
                     </div>
+                    <a asp-page="/Profile/Index" class="cb-btn cb-btn--ghost cb-btn--sm @(isProfileActive ? "is-active" : "")">Hồ sơ</a>
+                    <a asp-page="/Profile/Notifications" class="cb-btn cb-btn--ghost cb-btn--sm">Thông báo</a>
                     <form method="post" asp-page="/Account/Logout" class="cb-logout-form">
                         <button type="submit" class="cb-btn cb-btn--ghost cb-btn--sm">Đăng xuất</button>
                     </form>

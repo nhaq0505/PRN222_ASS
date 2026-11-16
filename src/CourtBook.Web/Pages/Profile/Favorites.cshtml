@@ -1,0 +1,69 @@
+@page
+@model CourtBook.Web.Pages.Profile.FavoritesModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Sân yêu thích";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+}
+
+<div class="cb-container">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Sân yêu thích</h1>
+            <p class="cb-page-subtitle">Danh sách venue bạn đã lưu để đặt nhanh trong tương lai.</p>
+        </div>
+    </div>
+
+    @if (Model.Favorites.Count == 0)
+    {
+        <div class="cb-empty-state">
+            <h3>Chưa có sân yêu thích</h3>
+            <p>Hãy lưu lại các sân bạn thích từ trang chi tiết sân để xem nhanh hơn.</p>
+            <a asp-page="/Index" class="cb-btn cb-btn--primary cb-btn--sm">Khám phá sân</a>
+        </div>
+    }
+    else
+    {
+        <div class="cb-venue-grid">
+            @foreach (var favorite in Model.Favorites)
+            {
+                var venue = favorite.Venue;
+                if (venue is null)
+                {
+                    continue;
+                }
+
+                <article class="cb-venue-card">
+                    <a href="/Venues/@venue.Id" class="cb-venue-card__media">
+                        @if (!string.IsNullOrWhiteSpace(venue.CoverImageUrl))
+                        {
+                            <img src="@venue.CoverImageUrl" alt="@venue.Name" class="cb-venue-card__img" />
+                        }
+                        else
+                        {
+                            <div class="cb-venue-card__placeholder"></div>
+                        }
+                    </a>
+                    <div class="cb-venue-card__body">
+                        <div class="cb-venue-card__eyebrow">
+                            <span>@venue.District</span>
+                            <span>@venue.OpenHour:00 - @venue.CloseHour:00</span>
+                        </div>
+                        <h2 class="cb-venue-card__title"><a href="/Venues/@venue.Id">@venue.Name</a></h2>
+                        <p class="cb-venue-card__address">@venue.Address</p>
+                        <div class="cb-venue-card__bottom">
+                            <div class="cb-venue-card__price">
+                                <span class="cb-venue-card__price-from">Từ</span>
+                                <strong class="cb-venue-card__price-val cb-tabular">@Math.Max(venue.Courts.Min(c => c.BasePricePerHour), 0).ToString("N0", viCulture)đ</strong>
+                                <span class="cb-venue-card__price-unit">/giờ</span>
+                            </div>
+                            <form method="post" asp-page-handler="Remove" asp-route-favoriteId="@favorite.Id">
+                                <button type="submit" class="cb-btn cb-btn--ghost cb-btn--sm">Bỏ lưu</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>

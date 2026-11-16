@@ -14,6 +14,10 @@ public class CourtBookDbContext : DbContext
     public DbSet<Venue> Venues => Set<Venue>();
     public DbSet<Court> Courts => Set<Court>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<FavoriteVenue> FavoriteVenues => Set<FavoriteVenue>();
+    public DbSet<VenueReview> VenueReviews => Set<VenueReview>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +31,10 @@ public class CourtBookDbContext : DbContext
             entity.Property(u => u.PhoneNumber).IsRequired().HasMaxLength(20);
             entity.Property(u => u.PasswordHash).IsRequired().HasMaxLength(256);
             entity.Property(u => u.Role).HasConversion<int>();
+            entity.Property(u => u.AvatarUrl).HasMaxLength(500);
+            entity.Property(u => u.Bio).HasMaxLength(400);
+            entity.Property(u => u.PreferredDistrict).HasMaxLength(100);
+            entity.Property(u => u.WalletBalanceVnd).HasPrecision(18, 0);
             entity.HasIndex(u => u.Email).IsUnique();
         });
 
@@ -101,6 +109,71 @@ public class CourtBookDbContext : DbContext
                 .WithMany(u => u.Bookings)
                 .HasForeignKey(b => b.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FavoriteVenue>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.HasIndex(f => new { f.UserId, f.VenueId }).IsUnique();
+
+            entity.HasOne(f => f.User)
+                .WithMany(u => u.FavoriteVenues)
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(f => f.Venue)
+                .WithMany(v => v.Favorites)
+                .HasForeignKey(f => f.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VenueReview>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Comment).HasMaxLength(400);
+            entity.Property(r => r.Rating).HasDefaultValue(5);
+            entity.HasIndex(r => new { r.VenueId, r.UserId }).IsUnique();
+            entity.HasIndex(r => r.CreatedAtUtc);
+
+            entity.HasOne(r => r.User)
+                .WithMany(u => u.Reviews)
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.Venue)
+                .WithMany(v => v.Reviews)
+                .HasForeignKey(r => r.VenueId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.AmountVnd).HasPrecision(18, 0);
+            entity.Property(t => t.Type).IsRequired().HasMaxLength(40);
+            entity.Property(t => t.Description).IsRequired().HasMaxLength(250);
+            entity.Property(t => t.ReferenceCode).HasMaxLength(80);
+            entity.HasIndex(t => new { t.UserId, t.CreatedAtUtc });
+
+            entity.HasOne(t => t.User)
+                .WithMany(u => u.WalletTransactions)
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserNotification>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+            entity.Property(n => n.Title).IsRequired().HasMaxLength(150);
+            entity.Property(n => n.Message).IsRequired().HasMaxLength(400);
+            entity.Property(n => n.Type).IsRequired().HasMaxLength(40);
+            entity.Property(n => n.ActionUrl).HasMaxLength(250);
+            entity.HasIndex(n => new { n.UserId, n.IsRead, n.CreatedAtUtc });
+
+            entity.HasOne(n => n.User)
+                .WithMany(u => u.Notifications)
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -1,0 +1,55 @@
+@page
+@model CourtBook.Web.Pages.Profile.NotificationsModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Thông báo";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+}
+
+<div class="cb-container">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Thông báo</h1>
+            <p class="cb-page-subtitle">Cập nhật khuyến mãi, lịch đặt và nhu cầu chăm sóc tài khoản của bạn.</p>
+        </div>
+        <form method="post" asp-page-handler="MarkAllRead">
+            <button type="submit" class="cb-btn cb-btn--outline cb-btn--sm">Đánh dấu đã đọc</button>
+        </form>
+    </div>
+
+    @if (Model.Notifications.Count == 0)
+    {
+        <div class="cb-empty-state">
+            <h3>Không có thông báo mới</h3>
+            <p>Bạn đang cập nhật đầy đủ. Chúng tôi sẽ gửi thông tin quan trọng tại đây.</p>
+        </div>
+    }
+    else
+    {
+        <div class="cb-notification-list">
+            @foreach (var item in Model.Notifications)
+            {
+                <article class="cb-notification-item @(item.IsRead ? "is-read" : "is-unread")">
+                    <div class="cb-notification-item__content">
+                        <div class="cb-notification-item__meta">
+                            <span class="cb-badge cb-badge--active">@item.Type</span>
+                            <span class="cb-tabular">@item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm", viCulture)</span>
+                        </div>
+                        <h3>@item.Title</h3>
+                        <p>@item.Message</p>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(item.ActionUrl))
+                    {
+                        <a href="@item.ActionUrl" class="cb-btn cb-btn--ghost cb-btn--sm">Xem</a>
+                    }
+                    @if (!item.IsRead)
+                    {
+                        <form method="post" asp-page-handler="MarkRead" asp-route-notificationId="@item.Id">
+                            <button type="submit" class="cb-btn cb-btn--outline cb-btn--sm">Đánh dấu đọc</button>
+                        </form>
+                    }
+                </article>
+            }
+        </div>
+    }
+</div>

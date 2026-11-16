@@ -11,11 +11,29 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=127.0.0.1,1433;Database=CourtBookDb;User Id=sa;Password=CourtBook@2026!;TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True";
+string? configuredConnectionString = builder.Configuration.GetConnectionString("Default")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
-builder.Services.AddDbContext<CourtBookDbContext>(options =>
-    options.UseSqlServer(connectionString));
+string connectionString = configuredConnectionString ??
+    $"Data Source={Path.Combine(builder.Environment.ContentRootPath, "Data", "courtbook.db")}";
+
+var useSqlite = builder.Configuration.GetValue<bool>("UseSqlite")
+    || configuredConnectionString?.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) == true
+    || configuredConnectionString is null;
+
+if (useSqlite)
+{
+    var dbPath = Path.Combine(builder.Environment.ContentRootPath, "Data", "courtbook.db");
+    Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+    connectionString = $"Data Source={dbPath}";
+    builder.Services.AddDbContext<CourtBookDbContext>(options =>
+        options.UseSqlite(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<CourtBookDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
 
 // Layer 2: DAOs
 builder.Services.AddScoped<UserDao>();

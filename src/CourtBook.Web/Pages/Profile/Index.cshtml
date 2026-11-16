@@ -1,0 +1,173 @@
+@page
+@model CourtBook.Web.Pages.Profile.IndexModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Hồ sơ & ví của tôi";
+    CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
+    decimal walletBalance = Model.Profile?.WalletBalanceVnd ?? 0m;
+}
+
+<div class="cb-container cb-profile-layout">
+    <div class="cb-page-header">
+        <div>
+            <h1 class="cb-page-title">Hồ sơ &amp; ví</h1>
+            <p class="cb-page-subtitle">Quản lý tài khoản, ưu tiên khu vực và lịch sử nạp tiền của bạn.</p>
+        </div>
+    </div>
+
+    <div class="cb-kpi-grid cb-kpi-grid--profile">
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Số dư ví</div>
+            <div class="cb-kpi-card__value">@walletBalance.ToString("N0", viCulture)đ</div>
+            <div class="cb-kpi-card__sub">Khả dụng để đặt sân nhanh</div>
+        </div>
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Sân yêu thích</div>
+            <div class="cb-kpi-card__value">@Model.FavoriteVenues.Count</div>
+            <div class="cb-kpi-card__sub">Cụm sân bạn đang lưu</div>
+        </div>
+        <div class="cb-kpi-card">
+            <div class="cb-kpi-card__label">Thông báo chưa đọc</div>
+            <div class="cb-kpi-card__value">@Model.UnreadNotifications.Count</div>
+            <div class="cb-kpi-card__sub">Để xem và theo dõi</div>
+        </div>
+    </div>
+
+    <div class="cb-profile-grid">
+        <section class="cb-card cb-card--tight">
+            <div class="cb-card__header">
+                <h2>Thông tin cá nhân</h2>
+            </div>
+            <form method="post" asp-page-handler="UpdateProfile" class="cb-form-stack">
+                <div class="cb-form-grid">
+                    <label>
+                        <span>Họ và tên</span>
+                        <input class="cb-input" type="text" name="fullName" value="@Model.Profile?.FullName" required />
+                    </label>
+                    <label>
+                        <span>Số điện thoại</span>
+                        <input class="cb-input" type="tel" name="phoneNumber" value="@Model.Profile?.PhoneNumber" />
+                    </label>
+                </div>
+
+                <label>
+                    <span>Tiểu sử</span>
+                    <textarea class="cb-input cb-input--textarea" name="bio" rows="4">@Model.Profile?.Bio</textarea>
+                </label>
+
+                <label>
+                    <span>Khu vực ưu tiên</span>
+                    <input class="cb-input" type="text" name="preferredDistrict" value="@Model.Profile?.PreferredDistrict" placeholder="VD: TP. Thủ Đức" />
+                </label>
+
+                <button type="submit" class="cb-btn cb-btn--primary">Lưu thông tin</button>
+            </form>
+        </section>
+
+        <section class="cb-card cb-card--tight">
+            <div class="cb-card__header">
+                <h2>Ví của tôi</h2>
+            </div>
+
+            <form method="post" asp-page-handler="Deposit" class="cb-form-stack">
+                <label>
+                    <span>Số tiền muốn nạp</span>
+                    <input class="cb-input" type="number" name="amount" min="50000" step="50000" value="200000" />
+                </label>
+
+                <div class="cb-wallet-quick-actions">
+                    <button type="submit" class="cb-btn cb-btn--primary" name="amount" value="200000">Nạp 200k</button>
+                    <button type="submit" class="cb-btn cb-btn--ghost" name="amount" value="500000">Nạp 500k</button>
+                    <button type="submit" class="cb-btn cb-btn--outline" name="amount" value="2000000">Nạp 2 triệu</button>
+                </div>
+            </form>
+
+            <div class="cb-mini-list">
+                <div class="cb-mini-list__item">
+                    <span>Trạng thái</span>
+                    <strong>Hoạt động</strong>
+                </div>
+                <div class="cb-mini-list__item">
+                    <span>Ưu tiên</span>
+                    <strong>@(string.IsNullOrWhiteSpace(Model.Profile?.PreferredDistrict) ? "Chưa chọn" : Model.Profile.PreferredDistrict)</strong>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <section class="cb-card">
+        <div class="cb-card__header">
+            <h2>Lịch sử giao dịch gần đây</h2>
+            <a asp-page="/Profile/Index" class="cb-link">Tải lại</a>
+        </div>
+
+        @if (Model.RecentTransactions.Count == 0)
+        {
+            <div class="cb-empty-state cb-empty-state--compact">
+                <p>Chưa có giao dịch nào trong ví.</p>
+            </div>
+        }
+        else
+        {
+            <div class="cb-table-scroll">
+                <table class="cb-table">
+                    <thead>
+                        <tr>
+                            <th>Mô tả</th>
+                            <th>Loại</th>
+                            <th>Giá trị</th>
+                            <th>Thời gian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tx in Model.RecentTransactions)
+                        {
+                            bool isCredit = tx.AmountVnd > 0;
+                            <tr>
+                                <td>@tx.Description</td>
+                                <td><span class="cb-badge @(isCredit ? "cb-badge--active" : "cb-badge--suspended")">@tx.Type</span></td>
+                                <td class="cb-tabular"><strong class="@(isCredit ? "cb-positive" : "cb-negative")">@(isCredit ? "+" : "-")@Math.Abs(tx.AmountVnd).ToString("N0", viCulture)đ</strong></td>
+                                <td class="cb-tabular">@tx.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm", viCulture)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="cb-card">
+        <div class="cb-card__header">
+            <h2>Sân yêu thích</h2>
+            <a asp-page="/Profile/Favorites" class="cb-link">Xem tất cả</a>
+        </div>
+
+        @if (Model.FavoriteVenues.Count == 0)
+        {
+            <div class="cb-empty-state cb-empty-state--compact">
+                <p>Bạn chưa lưu sân nào. Hãy thêm sân yêu thích từ trang chi tiết sân.</p>
+            </div>
+        }
+        else
+        {
+            <div class="cb-venue-inline-list">
+                @foreach (var item in Model.FavoriteVenues)
+                {
+                    var venue = item.Venue;
+                    if (venue is null)
+                    {
+                        continue;
+                    }
+
+                    <div class="cb-inline-venue-card">
+                        <div class="cb-inline-venue-card__content">
+                            <strong>@venue.Name</strong>
+                            <small>@venue.District · @venue.Address</small>
+                        </div>
+                        <a href="/Venues/@venue.Id" class="cb-btn cb-btn--ghost cb-btn--sm">Xem</a>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>

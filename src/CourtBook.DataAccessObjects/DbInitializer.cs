@@ -16,7 +16,11 @@ public static class DbInitializer
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.Database.IsRelational())
+        if (context.Database.IsSqlite())
+        {
+            await context.Database.EnsureCreatedAsync(cancellationToken);
+        }
+        else if (context.Database.IsRelational())
         {
             if (context.Database.GetMigrations().Any())
             {
@@ -35,6 +39,7 @@ public static class DbInitializer
         await SeedUsersAsync(context, adminEmail, adminPassword, adminFullName, cancellationToken);
         await SeedVenuesAndCourtsAsync(context, cancellationToken);
         await SeedSampleBookingsAsync(context, cancellationToken);
+        await SeedMemberExperienceAsync(context, cancellationToken);
     }
 
     private static async Task SeedUsersAsync(
@@ -523,6 +528,144 @@ public static class DbInitializer
             context.Bookings.AddRange(bookings);
             await context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private static async Task SeedMemberExperienceAsync(
+        CourtBookDbContext context,
+        CancellationToken cancellationToken)
+    {
+        AppUser? an = await context.Users.FirstOrDefaultAsync(
+            u => u.Email.ToLower() == "an@courtbook.vn", cancellationToken);
+        AppUser? binh = await context.Users.FirstOrDefaultAsync(
+            u => u.Email.ToLower() == "binh@courtbook.vn", cancellationToken);
+        AppUser? khoi = await context.Users.FirstOrDefaultAsync(
+            u => u.Email.ToLower() == "khoi.owner@courtbook.vn", cancellationToken);
+
+        if (an is null || binh is null)
+        {
+            return;
+        }
+
+        if (!context.WalletTransactions.Any())
+        {
+            context.WalletTransactions.AddRange(
+                new WalletTransaction
+                {
+                    UserId = an.Id,
+                    AmountVnd = 500_000m,
+                    Type = "Deposit",
+                    Description = "Nạp tiền lần đầu",
+                    ReferenceCode = "DEP-AN-001",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-8)
+                },
+                new WalletTransaction
+                {
+                    UserId = an.Id,
+                    AmountVnd = -120_000m,
+                    Type = "Booking",
+                    Description = "Đặt sân Thảo Điền Pickleball",
+                    ReferenceCode = "BK-AN-001",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-3)
+                },
+                new WalletTransaction
+                {
+                    UserId = binh.Id,
+                    AmountVnd = 300_000m,
+                    Type = "Deposit",
+                    Description = "Nạp tiền vào ví",
+                    ReferenceCode = "DEP-BH-001",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-5)
+                });
+        }
+
+        if (!context.FavoriteVenues.Any())
+        {
+            Venue? thaoDien = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "thao-dien-racquet-club", cancellationToken);
+            Venue? sala = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "sala-riverside-pickleball", cancellationToken);
+            if (thaoDien is not null)
+            {
+                context.FavoriteVenues.Add(new FavoriteVenue
+                {
+                    UserId = an.Id,
+                    VenueId = thaoDien.Id,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-2)
+                });
+            }
+
+            if (sala is not null)
+            {
+                context.FavoriteVenues.Add(new FavoriteVenue
+                {
+                    UserId = binh.Id,
+                    VenueId = sala.Id,
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-1)
+                });
+            }
+        }
+
+        if (!context.UserNotifications.Any())
+        {
+            context.UserNotifications.AddRange(
+                new UserNotification
+                {
+                    UserId = an.Id,
+                    Title = "Khuyến mãi sân Pickleball",
+                    Message = "Giảm 10% cho đặt sân trong tuần. Áp dụng đến cuối tuần này.",
+                    Type = "promo",
+                    ActionUrl = "/",
+                    IsRead = false,
+                    CreatedAtUtc = DateTime.UtcNow.AddHours(-4)
+                },
+                new UserNotification
+                {
+                    UserId = binh.Id,
+                    Title = "Đặt sân thành công",
+                    Message = "Bạn đã xác nhận lịch chơi tại Sala Riverside Pickleball.",
+                    Type = "booking",
+                    ActionUrl = "/MyBookings/Index",
+                    IsRead = true,
+                    CreatedAtUtc = DateTime.UtcNow.AddHours(-2)
+                });
+        }
+
+        if (!context.VenueReviews.Any())
+        {
+            Venue? thaoDien = await context.Venues.FirstOrDefaultAsync(v => v.Slug == "thao-dien-racquet-club", cancellationToken);
+            if (thaoDien is not null)
+            {
+                context.VenueReviews.Add(new VenueReview
+                {
+                    VenueId = thaoDien.Id,
+                    UserId = an.Id,
+                    Rating = 5,
+                    Comment = "Mặt sân tốt, đèn sáng, nhân viên hỗ trợ nhanh.",
+                    CreatedAtUtc = DateTime.UtcNow.AddDays(-3)
+                });
+            }
+        }
+
+        if (an is not null)
+        {
+            an.WalletBalanceVnd = 380_000m;
+            an.PreferredDistrict = "TP. Thủ Đức";
+            an.Bio = "Yêu thể thao ngoài trời và thích đặt sân vào buổi tối.";
+            an.AvatarUrl = "/uploads/avatars/member-an.jpg";
+        }
+
+        if (binh is not null)
+        {
+            binh.WalletBalanceVnd = 180_000m;
+            binh.PreferredDistrict = "Quận 7";
+            binh.Bio = "Thường tập cầu lông và pickleball cuối tuần.";
+            binh.AvatarUrl = "/uploads/avatars/member-binh.jpg";
+        }
+
+        if (khoi is not null)
+        {
+            khoi.WalletBalanceVnd = 0m;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     private static DateTime GetVietnamNow()

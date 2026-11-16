@@ -22,6 +22,8 @@ public class Venue
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     public ICollection<Court> Courts { get; set; } = new List<Court>();
+    public ICollection<FavoriteVenue> Favorites { get; set; } = new List<FavoriteVenue>();
+    public ICollection<VenueReview> Reviews { get; set; } = new List<VenueReview>();
 
     /// <summary>
     /// Returns the operating start hours for this venue (e.g. 6..21 for 06:00 - 22:00).
