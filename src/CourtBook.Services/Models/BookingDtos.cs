@@ -26,7 +26,7 @@ public class BookingTicketDto
     public string? Notes { get; set; }
     public string PaymentMethod { get; set; } = "Tại sân";
     public bool IsPaid { get; set; }
-    public string VietQrUrl => $"https://img.vietqr.io/image/970422-0901000001-compact2.png?amount={Convert.ToInt64(PriceVnd)}&addInfo={Uri.EscapeDataString("CB " + BookingCode)}&accountName=COURTBOOK%20VN";
+    public string VietQrUrl => $"https://img.vietqr.io/image/970422-0901976201-compact2.png?amount={Convert.ToInt64(PriceVnd)}&addInfo={Uri.EscapeDataString("CB " + BookingCode)}&accountName=COURTBOOK%20VN";
     public DateTime CreatedAtUtc { get; set; }
     public bool CanCancel { get; set; }
     public bool CanCheckIn { get; set; }
