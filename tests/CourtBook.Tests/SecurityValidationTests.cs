@@ -17,7 +17,7 @@ public class SecurityValidationTests
         string hash = PasswordHelper.HashPassword(rawPassword);
 
         Assert.NotNull(hash);
-        Assert.Contains(":", hash); // Format: {salt}:{subkey}
+        Assert.Contains(".", hash); // Format: {iterations}.{salt}.{hash}
 
         bool isValid = PasswordHelper.VerifyPassword(rawPassword, hash);
         Assert.True(isValid);
