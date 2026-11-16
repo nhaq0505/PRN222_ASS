@@ -16,19 +16,16 @@ public interface ICourtService
 
     Task<ServiceResult<Court>> CreateAsync(
         int actorUserId,
-        bool isAdmin,
         CourtUpsertDto dto,
         CancellationToken ct = default);
 
     Task<ServiceResult<Court>> UpdateAsync(
         int actorUserId,
-        bool isAdmin,
         CourtUpsertDto dto,
         CancellationToken ct = default);
 
     Task<ServiceResult<Court>> ToggleActiveAsync(
         int actorUserId,
-        bool isAdmin,
         int courtId,
         CancellationToken ct = default);
 }

@@ -65,7 +65,8 @@ public sealed record SeededTestData(
     Venue Venue2,
     Court Venue1Pickleball,
     Court Venue1Badminton,
-    Court Venue2Pickleball);
+    Court Venue2Pickleball,
+    AppUser Admin);
 
 public sealed class TestContextScope : IDisposable
 {
@@ -102,14 +103,23 @@ public sealed class TestContextScope : IDisposable
         BookingRepository = new BookingRepository(new BookingDao(Context));
 
         AuthService = new AuthService(UserRepository);
-        VenueService = new VenueService(VenueRepository, CourtRepository, BookingRepository, TimeProvider);
-        CourtService = new CourtService(CourtRepository, VenueRepository, Notifier);
-        BookingService = new BookingService(BookingRepository, CourtRepository, VenueRepository, Notifier, TimeProvider);
-        PlatformAdminService = new PlatformAdminService(VenueRepository, UserRepository, BookingRepository);
+        VenueService = new VenueService(VenueRepository, CourtRepository, BookingRepository, UserRepository, Notifier, TimeProvider);
+        CourtService = new CourtService(CourtRepository, VenueRepository, UserRepository, BookingRepository, Notifier, TimeProvider);
+        BookingService = new BookingService(BookingRepository, CourtRepository, VenueRepository, UserRepository, Notifier, TimeProvider);
+        PlatformAdminService = new PlatformAdminService(VenueRepository, UserRepository, BookingRepository, Notifier, TimeProvider);
     }
 
     public async Task<SeededTestData> SeedMinimalAsync()
     {
+        var admin = new AppUser
+        {
+            FullName = "Quản trị sàn CourtBook",
+            Email = "admin@test.vn",
+            PhoneNumber = "0901000001",
+            PasswordHash = PasswordHelper.HashPassword("Admin@123"),
+            Role = UserRole.Admin,
+            IsActive = true
+        };
         var owner1 = new AppUser
         {
             FullName = "Lê Minh Khôi",
@@ -147,7 +157,7 @@ public sealed class TestContextScope : IDisposable
             IsActive = true
         };
 
-        Context.Users.AddRange(owner1, owner2, member1, member2);
+        Context.Users.AddRange(admin, owner1, owner2, member1, member2);
         await Context.SaveChangesAsync();
 
         var venue1 = new Venue
@@ -225,7 +235,7 @@ public sealed class TestContextScope : IDisposable
         Context.Courts.AddRange(c1, c2, c3);
         await Context.SaveChangesAsync();
 
-        return new SeededTestData(owner1, owner2, member1, member2, venue1, venue2, c1, c2, c3);
+        return new SeededTestData(owner1, owner2, member1, member2, venue1, venue2, c1, c2, c3, admin);
     }
 
     public void Dispose() => Context.Dispose();

@@ -65,7 +65,7 @@ public class VenueAndCourtPhotoTests
         Venue? thaoDienEntity = await scope.VenueService.GetVenueByIdAsync(thaoDien.Id);
         Assert.NotNull(thaoDienEntity);
         OwnerPortalDto ownerPortal = await scope.BookingService.GetOwnerPortalAsync(
-            thaoDienEntity!.OwnerId, isAdmin: false, thaoDien.Id, todayVn);
+            thaoDienEntity!.OwnerId, thaoDien.Id, todayVn);
         Assert.Contains(ownerPortal.MyVenues, v => v.Id == thaoDien.Id && v.CoverImageUrl == "/uploads/venues/thao-dien-cover.jpg");
     }
 
@@ -77,7 +77,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Venue> created = await scope.VenueService.CreateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: true,
             new VenueUpsertDto
             {
                 Name = "Sân Ảnh Mới",
@@ -96,7 +95,6 @@ public class VenueAndCourtPhotoTests
         // Passing null for CoverImageUrl and GalleryImageUrls must preserve existing photos
         ServiceResult<Venue> preserved = await scope.VenueService.UpdateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Id = created.Data.Id,
@@ -118,7 +116,6 @@ public class VenueAndCourtPhotoTests
         // Removing one gallery photo and updating cover updates cleanly
         ServiceResult<Venue> updatedPhotos = await scope.VenueService.UpdateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Id = created.Data.Id,
@@ -152,7 +149,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Venue> badCover = await scope.VenueService.CreateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Name = "Sân Lỗi Ảnh",
@@ -165,7 +161,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Venue> badGallery = await scope.VenueService.UpdateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Id = seed.Venue1.Id,
@@ -181,7 +176,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Court> badCourtCreate = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -197,7 +191,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Court> badCourtUpdate = await scope.CourtService.UpdateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 Id = seed.Venue1Pickleball.Id,
@@ -221,7 +214,6 @@ public class VenueAndCourtPhotoTests
 
         ServiceResult<Court> created = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -241,7 +233,6 @@ public class VenueAndCourtPhotoTests
         // Null preserves existing ImageUrl
         ServiceResult<Court> preserved = await scope.CourtService.UpdateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 Id = created.Data.Id,
@@ -262,7 +253,6 @@ public class VenueAndCourtPhotoTests
         // Empty string clears ImageUrl
         ServiceResult<Court> cleared = await scope.CourtService.UpdateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 Id = created.Data.Id,

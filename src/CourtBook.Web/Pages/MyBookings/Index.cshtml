@@ -12,7 +12,11 @@
     <div class="cb-page-header">
         <div>
             <h1 class="cb-page-title">Lịch đặt của tôi</h1>
-            <p class="cb-page-subtitle">Quản lý các khung giờ sắp tới và xem lại lịch sử đặt sân trên toàn sàn</p>
+            <p class="cb-page-subtitle">
+                @(isHistoryTab
+                    ? "Xem lại các đơn đặt sân đã hoàn tất, đã check-in hoặc đã hủy trên toàn sàn"
+                    : "Quản lý các khung giờ sắp tới · Hỗ trợ tự hủy lịch trực tuyến trước giờ chơi ít nhất 2 tiếng.")
+            </p>
         </div>
         <a asp-page="/Index" class="cb-btn cb-btn--outline">Đặt thêm sân</a>
     </div>
@@ -103,6 +107,10 @@
                                 <input type="hidden" name="bookingId" value="@ticket.Id" />
                                 <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Hủy lịch</button>
                             </form>
+                        }
+                        else if (!isHistoryTab && ticket.Status == BookingStatus.Confirmed)
+                        {
+                            <span class="cb-table__sub" style="margin-top:0;color:var(--cb-ink-muted);">Sát giờ (&lt; 2h) · Liên hệ chủ sân</span>
                         }
                     </div>
                 </article>

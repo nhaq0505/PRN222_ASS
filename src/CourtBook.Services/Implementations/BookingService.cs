@@ -1,6 +1,8 @@
+using System.Globalization;
 using CourtBook.BusinessObjects.Entities;
 using CourtBook.BusinessObjects.Enums;
 using CourtBook.Repositories;
+using CourtBook.Services.Helpers;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 
@@ -9,13 +11,17 @@ namespace CourtBook.Services.Implementations;
 public class BookingService : IBookingService
 {
     public const int MaxActiveHoldsPerUser = 6;
+    public const int MemberCancelLeadHours = 2;
+    public const int MaxAdvanceBookingDays = 30;
+    private const string SelfDealingBookingMessage =
+        "Bạn là chủ sở hữu cụm sân này, không thể tự đặt lịch trên sân của chính mình.";
     private static readonly TimeSpan HoldDuration = TimeSpan.FromMinutes(2);
     private static readonly SemaphoreSlim SlotLock = new(1, 1);
-    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
 
     private readonly IBookingRepository _bookingRepository;
     private readonly ICourtRepository _courtRepository;
     private readonly IVenueRepository _venueRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ISlotRealtimeNotifier _notifier;
     private readonly TimeProvider _timeProvider;
 
@@ -23,12 +29,14 @@ public class BookingService : IBookingService
         IBookingRepository bookingRepository,
         ICourtRepository courtRepository,
         IVenueRepository venueRepository,
+        IUserRepository userRepository,
         ISlotRealtimeNotifier notifier,
         TimeProvider? timeProvider = null)
     {
         _bookingRepository = bookingRepository;
         _courtRepository = courtRepository;
         _venueRepository = venueRepository;
+        _userRepository = userRepository;
         _notifier = notifier;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -118,6 +126,7 @@ public class BookingService : IBookingService
             VenueDescription = venue.Description,
             VenueCoverImageUrl = venue.CoverImageUrl,
             VenuePhotoUrls = venue.GetAllPhotos(),
+            OwnerId = venue.OwnerId,
             OwnerName = venue.Owner?.FullName ?? string.Empty,
             OpenHour = venue.OpenHour,
             CloseHour = venue.CloseHour,
@@ -145,6 +154,12 @@ public class BookingService : IBookingService
         await SlotLock.WaitAsync(ct);
         try
         {
+            string? actorError = await AuthorizeBookingCustomerAsync(userId, ct);
+            if (actorError is not null)
+            {
+                return ServiceResult<ToggleHoldResponseDto>.Fail(actorError);
+            }
+
             await ReleaseExpiredHoldsInternalAsync(ct);
 
             Court? court = await _courtRepository.GetByIdAsync(courtId, ct);
@@ -157,6 +172,11 @@ public class BookingService : IBookingService
             if (venue is null || venue.Status != VenueStatus.Active)
             {
                 return ServiceResult<ToggleHoldResponseDto>.Fail("Cụm sân này hiện không mở nhận đặt lịch.");
+            }
+
+            if (venue.OwnerId == userId)
+            {
+                return ServiceResult<ToggleHoldResponseDto>.Fail(SelfDealingBookingMessage);
             }
 
             if (!court.IsActive)
@@ -213,6 +233,13 @@ public class BookingService : IBookingService
             if (IsSlotPastOrStarted(playDate, startHour, nowVn))
             {
                 return ServiceResult<ToggleHoldResponseDto>.Fail("Không thể đặt khung giờ đã qua.");
+            }
+
+            DateOnly maxAdvanceDate = DateOnly.FromDateTime(nowVn).AddDays(MaxAdvanceBookingDays);
+            if (playDate > maxAdvanceDate)
+            {
+                return ServiceResult<ToggleHoldResponseDto>.Fail(
+                    $"Chỉ mở đặt lịch trước tối đa {MaxAdvanceBookingDays} ngày.");
             }
 
             int currentHoldCount = await _bookingRepository.CountActiveHoldsByUserAsync(userId, utcNow, court.VenueId, ct);
@@ -279,6 +306,12 @@ public class BookingService : IBookingService
         await SlotLock.WaitAsync(ct);
         try
         {
+            string? actorError = await AuthorizeBookingCustomerAsync(userId, ct);
+            if (actorError is not null)
+            {
+                return ServiceResult<IReadOnlyList<BookingTicketDto>>.Fail(actorError);
+            }
+
             await ReleaseExpiredHoldsInternalAsync(ct);
 
             Venue? venue = await _venueRepository.GetByIdAsync(venueId, ct);
@@ -286,6 +319,11 @@ public class BookingService : IBookingService
             {
                 return ServiceResult<IReadOnlyList<BookingTicketDto>>.Fail(
                     "Cụm sân này hiện không mở nhận đặt lịch.");
+            }
+
+            if (venue.OwnerId == userId)
+            {
+                return ServiceResult<IReadOnlyList<BookingTicketDto>>.Fail(SelfDealingBookingMessage);
             }
 
             DateTime utcNow = GetUtcNow();
@@ -302,6 +340,12 @@ public class BookingService : IBookingService
             {
                 return ServiceResult<IReadOnlyList<BookingTicketDto>>.Fail(
                     "Một số sân trong danh sách giữ chỗ hiện đang bảo trì.");
+            }
+
+            if (activeHolds.Any(h => IsSlotPastOrStarted(h.PlayDate, h.StartHour, nowVn)))
+            {
+                return ServiceResult<IReadOnlyList<BookingTicketDto>>.Fail(
+                    "Một hoặc nhiều khung giờ giữ chỗ đã bắt đầu hoặc trôi qua. Vui lòng chọn lại.");
             }
 
             string? cleanNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
@@ -338,7 +382,7 @@ public class BookingService : IBookingService
             IReadOnlyList<BookingTicketDto> tickets = activeHolds
                 .Select(b => MapTicket(
                     b,
-                    canCancel: !IsSlotPastOrStarted(b.PlayDate, b.StartHour, nowVn),
+                    canCancel: CanMemberSelfCancel(b.PlayDate, b.StartHour, nowVn),
                     canCheckIn: false))
                 .ToList();
 
@@ -375,7 +419,7 @@ public class BookingService : IBookingService
 
             if (booking.Status == BookingStatus.Confirmed && isUpcomingSlot)
             {
-                bool canCancel = !IsSlotPastOrStarted(booking.PlayDate, booking.StartHour, nowVn);
+                bool canCancel = CanMemberSelfCancel(booking.PlayDate, booking.StartHour, nowVn);
                 upcoming.Add(MapTicket(booking, canCancel: canCancel, canCheckIn: false));
             }
             else
@@ -402,29 +446,35 @@ public class BookingService : IBookingService
         UserRole actorRole,
         CancellationToken ct = default)
     {
+        AppUser? actor = await ActorGuard.GetActiveActorAsync(_userRepository, actorUserId, ct);
+        if (actor is null)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(ActorGuard.InactiveOrMissingMessage);
+        }
+
+        if (actorRole == UserRole.Admin || actor.Role == UserRole.Admin)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(
+                "Quản trị sàn không trực tiếp hủy đơn lẻ của đối tác; vui lòng dùng chức năng Tạm khóa cụm sân nếu vi phạm.");
+        }
+
         Booking? booking = await _bookingRepository.GetByIdAsync(bookingId, includeDetails: true, ct);
         if (booking is null)
         {
             return ServiceResult<BookingTicketDto>.Fail("Không tìm thấy đơn đặt sân.");
         }
 
-        bool isVenueOwner = actorRole == UserRole.CourtOwner &&
-                            booking.Court?.Venue?.OwnerId == actorUserId;
+        bool isVenueOwner = actorRole == UserRole.CourtOwner
+                            && actor.Role == UserRole.CourtOwner
+                            && booking.Court?.Venue?.OwnerId == actorUserId;
         bool isSelfBooking = booking.UserId == actorUserId;
 
-        if (actorRole != UserRole.Admin)
+        if (!isVenueOwner && !isSelfBooking)
         {
-            if (actorRole == UserRole.CourtOwner)
-            {
-                if (!isVenueOwner && !isSelfBooking)
-                {
-                    return ServiceResult<BookingTicketDto>.Fail("Bạn không thể thao tác đơn đặt của cụm sân thuộc chủ khác.");
-                }
-            }
-            else if (!isSelfBooking)
-            {
-                return ServiceResult<BookingTicketDto>.Fail("Bạn không có quyền hủy đơn đặt sân này.");
-            }
+            string denyMsg = actorRole == UserRole.CourtOwner && actor.Role == UserRole.CourtOwner
+                ? "Bạn không thể thao tác đơn đặt của cụm sân thuộc chủ khác."
+                : "Bạn không có quyền hủy đơn đặt sân này.";
+            return ServiceResult<BookingTicketDto>.Fail(denyMsg);
         }
 
         if (booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.Expired)
@@ -439,11 +489,19 @@ public class BookingService : IBookingService
 
         DateTime utcNow = GetUtcNow();
         DateTime nowVn = GetVietnamNow(utcNow);
-        bool hasAdminOrVenueOwnerPrivilege = actorRole == UserRole.Admin || isVenueOwner;
 
-        if (!hasAdminOrVenueOwnerPrivilege && IsSlotPastOrStarted(booking.PlayDate, booking.StartHour, nowVn))
+        if (!isVenueOwner)
         {
-            return ServiceResult<BookingTicketDto>.Fail("Đã đến hoặc quá giờ chơi, không thể tự hủy lịch.");
+            if (IsSlotPastOrStarted(booking.PlayDate, booking.StartHour, nowVn))
+            {
+                return ServiceResult<BookingTicketDto>.Fail("Đã đến hoặc quá giờ chơi, không thể tự hủy lịch.");
+            }
+
+            if (booking.Status == BookingStatus.Confirmed && !CanMemberSelfCancel(booking.PlayDate, booking.StartHour, nowVn))
+            {
+                return ServiceResult<BookingTicketDto>.Fail(
+                    "Khách chỉ có thể tự hủy lịch trước giờ chơi ít nhất 2 tiếng. Vui lòng liên hệ trực tiếp Chủ sân để được hỗ trợ.");
+            }
         }
 
         booking.Status = BookingStatus.Cancelled;
@@ -474,18 +532,31 @@ public class BookingService : IBookingService
         UserRole actorRole,
         CancellationToken ct = default)
     {
+        AppUser? actor = await ActorGuard.GetActiveActorAsync(_userRepository, actorUserId, ct);
+        if (actor is null)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(ActorGuard.InactiveOrMissingMessage);
+        }
+
+        if (actorRole == UserRole.Admin || actor.Role == UserRole.Admin)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(
+                "Quản trị sàn chỉ giám sát hệ thống, không trực tiếp check-in thu tiền tại sân của đối tác.");
+        }
+
         Booking? booking = await _bookingRepository.GetByIdAsync(bookingId, includeDetails: true, ct);
         if (booking is null)
         {
             return ServiceResult<BookingTicketDto>.Fail("Không tìm thấy đơn đặt sân.");
         }
 
-        bool isAuthorized = actorRole == UserRole.Admin ||
-                            (actorRole == UserRole.CourtOwner && booking.Court?.Venue?.OwnerId == actorUserId);
+        bool isAuthorized = actorRole == UserRole.CourtOwner
+                            && actor.Role == UserRole.CourtOwner
+                            && booking.Court?.Venue?.OwnerId == actorUserId;
 
         if (!isAuthorized)
         {
-            string denyMsg = actorRole == UserRole.CourtOwner
+            string denyMsg = actorRole == UserRole.CourtOwner && actor.Role == UserRole.CourtOwner
                 ? "Bạn không thể thao tác đơn đặt của cụm sân thuộc chủ khác."
                 : "Bạn không có quyền check-in đơn đặt sân này.";
             return ServiceResult<BookingTicketDto>.Fail(denyMsg);
@@ -502,6 +573,20 @@ public class BookingService : IBookingService
         }
 
         DateTime utcNow = GetUtcNow();
+        DateOnly todayVn = DateOnly.FromDateTime(GetVietnamNow(utcNow));
+
+        if (booking.PlayDate > todayVn)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(
+                $"Chỉ có thể check-in đúng ngày chơi trên vé ({booking.PlayDate:dd/MM/yyyy}).");
+        }
+
+        if (booking.PlayDate < todayVn)
+        {
+            return ServiceResult<BookingTicketDto>.Fail(
+                $"Đơn đặt ngày {booking.PlayDate:dd/MM/yyyy} đã qua ngày chơi, không thể check-in.");
+        }
+
         booking.Status = BookingStatus.CheckedIn;
         booking.CheckedInAtUtc = utcNow;
         await _bookingRepository.UpdateAsync(booking, ct);
@@ -538,16 +623,13 @@ public class BookingService : IBookingService
 
     public async Task<OwnerPortalDto> GetOwnerPortalAsync(
         int ownerUserId,
-        bool isAdmin,
         int? selectedVenueId,
         DateOnly selectedDate,
         CancellationToken ct = default)
     {
         await ReleaseExpiredHoldsAsync(ct);
 
-        List<Venue> accessibleVenues = isAdmin
-            ? await _venueRepository.GetAllForAdminAsync(null, ct)
-            : await _venueRepository.GetByOwnerAsync(ownerUserId, ct);
+        List<Venue> accessibleVenues = await _venueRepository.GetByOwnerAsync(ownerUserId, ct);
 
         List<OwnerVenueSummaryDto> myVenues = accessibleVenues
             .Select(v => new OwnerVenueSummaryDto
@@ -576,6 +658,7 @@ public class BookingService : IBookingService
         }
 
         DateTime utcNow = GetUtcNow();
+        DateOnly todayVn = DateOnly.FromDateTime(GetVietnamNow(utcNow));
         List<Court> venueCourts = await _courtRepository.GetByVenueAsync(selectedVenue.Id, activeOnly: false, sportFilter: null, ct);
         List<Booking> dateBookings = await _bookingRepository.GetBookingsForVenueAndDateAsync(selectedVenue.Id, selectedDate, activeOnly: false, ct);
 
@@ -584,7 +667,12 @@ public class BookingService : IBookingService
             .ToList();
 
         int checkedInCount = dateBookings.Count(b => b.Status == BookingStatus.CheckedIn);
-        decimal revenue = confirmedOrCheckedIn.Sum(b => b.PriceVnd);
+        decimal realizedRevenue = dateBookings
+            .Where(b => b.Status == BookingStatus.CheckedIn)
+            .Sum(b => b.PriceVnd);
+        decimal expectedRevenue = dateBookings
+            .Where(b => b.Status == BookingStatus.Confirmed)
+            .Sum(b => b.PriceVnd);
         int activeCourtCount = venueCourts.Count(c => c.IsActive);
         int operatingHoursCount = selectedVenue.GetOperatingHours().Length;
         double occupancy = activeCourtCount > 0 && operatingHoursCount > 0
@@ -602,7 +690,7 @@ public class BookingService : IBookingService
             .Select(b => MapTicket(
                 b,
                 canCancel: b.Status == BookingStatus.Confirmed || b.Status == BookingStatus.Held,
-                canCheckIn: b.Status == BookingStatus.Confirmed))
+                canCheckIn: b.Status == BookingStatus.Confirmed && b.PlayDate == todayVn))
             .ToList();
 
         return new OwnerPortalDto
@@ -612,7 +700,8 @@ public class BookingService : IBookingService
             SelectedDate = selectedDate,
             TodayConfirmedCount = confirmedOrCheckedIn.Count,
             TodayCheckedInCount = checkedInCount,
-            TodayRevenueVnd = revenue,
+            TodayRevenueVnd = realizedRevenue,
+            TodayExpectedRevenueVnd = expectedRevenue,
             OccupancyPercent = occupancy,
             ActiveHoldsCount = activeHolds,
             DateBookings = tickets,
@@ -624,35 +713,11 @@ public class BookingService : IBookingService
     {
         DateTime utcNow = GetUtcNow();
         List<Booking> expired = await _bookingRepository.GetExpiredHoldsAsync(utcNow, ct);
-        if (expired.Count == 0)
-        {
-            return 0;
-        }
-
-        var broadcasts = new List<SlotUpdateBroadcastDto>(expired.Count);
-        foreach (Booking hold in expired)
-        {
-            hold.Status = BookingStatus.Expired;
-            hold.HoldExpiresAtUtc = null;
-
-            broadcasts.Add(new SlotUpdateBroadcastDto
-            {
-                VenueId = hold.Court?.VenueId ?? 0,
-                PlayDate = hold.PlayDate.ToString("yyyy-MM-dd"),
-                CourtId = hold.CourtId,
-                StartHour = hold.StartHour,
-                Status = BookingStatus.Expired,
-                BookingId = hold.Id,
-                UserId = hold.UserId,
-                PriceVnd = hold.Court?.GetPriceForHour(hold.StartHour) ?? hold.PriceVnd,
-                HoldExpiresAtUtc = null,
-                IsCourtActive = hold.Court?.IsActive ?? true
-            });
-        }
-
-        await _bookingRepository.UpdateRangeAsync(expired, ct);
-        await _notifier.NotifySlotsUpdatedAsync(broadcasts);
-        return expired.Count;
+        return await HoldExpirationHelper.ExpireHoldsAndBroadcastAsync(
+            expired,
+            _bookingRepository,
+            _notifier,
+            ct: ct);
     }
 
     private async Task<HeldSummaryDto> BuildHeldSummaryAsync(int userId, int venueId, DateTime utcNow, CancellationToken ct)
@@ -676,9 +741,10 @@ public class BookingService : IBookingService
             HoldExpiresAtUtc = AsUtc(h.HoldExpiresAtUtc)
         }).ToList();
 
+        string firstDate = items[0].PlayDate.ToString("dd/MM", CultureInfo.InvariantCulture);
         string summaryText = items.Count == 1
-            ? $"{items[0].CourtName} · {items[0].TimeRangeLabel}"
-            : $"{items[0].CourtName} ({items[0].TimeRangeLabel}) và {items.Count - 1} khung giờ khác";
+            ? $"{items[0].CourtName} · {firstDate} ({items[0].TimeRangeLabel})"
+            : $"{items[0].CourtName} · {firstDate} ({items[0].TimeRangeLabel}) và {items.Count - 1} khung giờ khác";
 
         DateTime? earliest = items
             .Where(i => i.HoldExpiresAtUtc.HasValue)
@@ -796,6 +862,12 @@ public class BookingService : IBookingService
     private static DateTime? AsUtc(DateTime? value)
         => value.HasValue ? AsUtc(value.Value) : null;
 
+    public static bool CanMemberSelfCancel(DateOnly playDate, int startHour, DateTime nowVn)
+    {
+        DateTime slotStartVn = playDate.ToDateTime(new TimeOnly(startHour, 0));
+        return (slotStartVn - nowVn) >= TimeSpan.FromHours(MemberCancelLeadHours);
+    }
+
     private static bool IsSlotPastOrStarted(DateOnly playDate, int startHour, DateTime nowVn)
     {
         DateOnly todayVn = DateOnly.FromDateTime(nowVn);
@@ -810,24 +882,21 @@ public class BookingService : IBookingService
     private DateTime GetUtcNow() => _timeProvider.GetUtcNow().UtcDateTime;
 
     private static DateTime GetVietnamNow(DateTime utcNow)
-        => TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), VietnamTimeZone);
+        => VietnamTimeHelper.FromUtc(utcNow);
 
-    private static TimeZoneInfo ResolveVietnamTimeZone()
+    private async Task<string?> AuthorizeBookingCustomerAsync(int userId, CancellationToken ct)
     {
-        try
+        AppUser? actor = await ActorGuard.GetActiveActorAsync(_userRepository, userId, ct);
+        if (actor is null)
         {
-            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            return ActorGuard.InactiveOrMissingMessage;
         }
-        catch (TimeZoneNotFoundException)
+
+        if (actor.Role == UserRole.Admin)
         {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                return TimeZoneInfo.CreateCustomTimeZone("ICT", TimeSpan.FromHours(7), "Indochina Time", "ICT");
-            }
+            return "Tài khoản Quản trị sàn dùng để điều hành hệ thống, không tham gia đặt lịch sân.";
         }
+
+        return null;
     }
 }

@@ -1,11 +1,15 @@
+using CourtBook.BusinessObjects.Enums;
 using CourtBook.DataAccessObjects;
 using CourtBook.Repositories;
 using CourtBook.Services.Implementations;
 using CourtBook.Services.Interfaces;
+using CourtBook.Services.Models;
+using CourtBook.Web.Extensions;
 using CourtBook.Web.Hubs;
 using CourtBook.Web.Realtime;
 using CourtBook.Web.Services;
 using CourtBook.Web.Workers;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 
@@ -54,6 +58,48 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async context =>
+            {
+                int? userId = context.Principal?.GetUserId();
+                UserRole? claimRole = context.Principal?.GetUserRole();
+                IAuthService authService = context.HttpContext.RequestServices.GetRequiredService<IAuthService>();
+                AuthUserDto? activeUser = userId.HasValue
+                    ? await authService.GetByIdAsync(userId.Value, context.HttpContext.RequestAborted)
+                    : null;
+
+                if (activeUser is null || activeUser.Role != claimRole)
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                }
+            },
+            OnRedirectToLogin = context =>
+            {
+                if (IsJsonOrAjaxRequest(context.Request))
+                {
+                    context.Response.Headers.Location = context.RedirectUri;
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                }
+
+                context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            },
+            OnRedirectToAccessDenied = context =>
+            {
+                if (IsJsonOrAjaxRequest(context.Request))
+                {
+                    context.Response.Headers.Location = context.RedirectUri;
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                }
+
+                context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -88,3 +134,8 @@ app.MapRazorPages();
 app.MapHub<CourtHub>("/hubs/court");
 
 app.Run();
+
+static bool IsJsonOrAjaxRequest(HttpRequest request)
+    => string.Equals(request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+       || request.Headers.Accept.Any(a =>
+           a is not null && a.Contains("application/json", StringComparison.OrdinalIgnoreCase));

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CourtBook.Web.Pages.MyBookings;
 
-[Authorize]
+[Authorize(Roles = "Member,CourtOwner")]
 public class IndexModel : PageModel
 {
     private readonly IBookingService _bookingService;

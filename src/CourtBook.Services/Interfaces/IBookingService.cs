@@ -45,7 +45,6 @@ public interface IBookingService
 
     Task<OwnerPortalDto> GetOwnerPortalAsync(
         int ownerUserId,
-        bool isAdmin,
         int? selectedVenueId,
         DateOnly selectedDate,
         CancellationToken ct = default);

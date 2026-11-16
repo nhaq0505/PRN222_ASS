@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CourtBook.Web.Pages.Owner;
 
-[Authorize(Roles = "CourtOwner,Admin")]
+[Authorize(Roles = "CourtOwner")]
 public class IndexModel : PageModel
 {
     private const int MaxVenueGalleryPhotos = 8;
@@ -62,7 +62,6 @@ public class IndexModel : PageModel
         SelectedDate = ParseDateOrToday(date);
         Portal = await _bookingService.GetOwnerPortalAsync(
             userId.Value,
-            User.IsAdmin(),
             venueId,
             SelectedDate,
             HttpContext.RequestAborted);
@@ -185,7 +184,6 @@ public class IndexModel : PageModel
 
         ServiceResult<Venue> result = await _venueService.CreateVenueAsync(
             userId.Value,
-            User.IsAdmin(),
             venueForm,
             HttpContext.RequestAborted);
 
@@ -284,7 +282,6 @@ public class IndexModel : PageModel
 
         ServiceResult<Venue> result = await _venueService.UpdateVenueAsync(
             userId.Value,
-            User.IsAdmin(),
             venueForm,
             HttpContext.RequestAborted);
 
@@ -385,14 +382,16 @@ public class IndexModel : PageModel
 
         ServiceResult<Court> result = await _courtService.ToggleActiveAsync(
             actorUserId.Value,
-            User.IsAdmin(),
             courtId,
             HttpContext.RequestAborted);
 
         if (result.Succeeded && result.Data is not null)
         {
             string statusText = result.Data.IsActive ? "đã mở hoạt động" : "đã chuyển bảo trì";
-            TempData["ToastSuccess"] = $"{result.Data.Name} {statusText}.";
+            string baseMsg = $"{result.Data.Name} {statusText}.";
+            TempData["ToastSuccess"] = string.IsNullOrWhiteSpace(result.WarningMessage)
+                ? baseMsg
+                : $"{baseMsg} {result.WarningMessage}";
         }
         else
         {
@@ -453,14 +452,17 @@ public class IndexModel : PageModel
         }
 
         ServiceResult<Court> result = isUpdate
-            ? await _courtService.UpdateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted)
-            : await _courtService.CreateAsync(actorUserId.Value, User.IsAdmin(), courtForm, HttpContext.RequestAborted);
+            ? await _courtService.UpdateAsync(actorUserId.Value, courtForm, HttpContext.RequestAborted)
+            : await _courtService.CreateAsync(actorUserId.Value, courtForm, HttpContext.RequestAborted);
 
         if (result.Succeeded && result.Data is not null)
         {
-            TempData["ToastSuccess"] = isUpdate
+            string baseMsg = isUpdate
                 ? $"Đã cập nhật sân {result.Data.Name}."
                 : $"Đã thêm sân mới {result.Data.Name}.";
+            TempData["ToastSuccess"] = string.IsNullOrWhiteSpace(result.WarningMessage)
+                ? baseMsg
+                : $"{baseMsg} {result.WarningMessage}";
 
             return RedirectToPage("/Owner/Index", new
             {
@@ -512,7 +514,6 @@ public class IndexModel : PageModel
         SelectedDate = GetVietnamToday();
         Portal = await _bookingService.GetOwnerPortalAsync(
             userId,
-            User.IsAdmin(),
             null,
             SelectedDate,
             HttpContext.RequestAborted);
@@ -529,7 +530,6 @@ public class IndexModel : PageModel
         TempData["ToastError"] = errorMessage;
         Portal = await _bookingService.GetOwnerPortalAsync(
             userId,
-            User.IsAdmin(),
             venueForm.Id,
             SelectedDate,
             HttpContext.RequestAborted);
@@ -554,7 +554,6 @@ public class IndexModel : PageModel
         TempData["ToastError"] = errorMessage;
         Portal = await _bookingService.GetOwnerPortalAsync(
             actorUserId,
-            User.IsAdmin(),
             courtForm.VenueId > 0 ? courtForm.VenueId : null,
             SelectedDate,
             HttpContext.RequestAborted);

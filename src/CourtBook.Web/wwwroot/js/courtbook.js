@@ -394,8 +394,9 @@
     }
 
     function redirectToLogin(loginUrl) {
+        const baseUrl = (loginUrl || '/Account/Login').split('?')[0];
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.href = `${loginUrl || '/Account/Login'}?ReturnUrl=${returnUrl}`;
+        window.location.href = `${baseUrl}?ReturnUrl=${returnUrl}`;
     }
 
     function initScheduleClickHandlers() {

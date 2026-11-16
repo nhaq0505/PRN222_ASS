@@ -19,13 +19,11 @@ public interface IVenueService
 
     Task<ServiceResult<Venue>> CreateVenueAsync(
         int ownerUserId,
-        bool isAdmin,
         VenueUpsertDto dto,
         CancellationToken ct = default);
 
     Task<ServiceResult<Venue>> UpdateVenueAsync(
         int actorUserId,
-        bool isAdmin,
         VenueUpsertDto dto,
         CancellationToken ct = default);
 }

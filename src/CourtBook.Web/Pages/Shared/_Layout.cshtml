@@ -50,11 +50,11 @@
 
             <nav class="cb-nav" aria-label="Điều hướng chính">
                 <a asp-page="/Index" class="cb-nav__link @(isExploreActive ? "is-active" : "")">Khám phá sân</a>
-                @if (User.Identity?.IsAuthenticated == true)
+                @if (User.Identity?.IsAuthenticated == true && !User.IsAdmin())
                 {
                     <a asp-page="/MyBookings/Index" class="cb-nav__link @(isMyBookingsActive ? "is-active" : "")">Lịch của tôi</a>
                 }
-                @if (User.IsOwnerOrAdmin())
+                @if (User.IsCourtOwner())
                 {
                     <a asp-page="/Owner/Index" class="cb-nav__link @(isOwnerActive ? "is-active" : "")">Kênh Chủ sân</a>
                 }

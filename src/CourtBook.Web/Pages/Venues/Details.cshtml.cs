@@ -1,13 +1,16 @@
 using System.Globalization;
+using System.Security.Claims;
 using CourtBook.BusinessObjects.Enums;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 using CourtBook.Web.Extensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace CourtBook.Web.Pages.Venues;
 
+[EnsureAuthenticatedBeforeAntiforgeryOnBookingPost]
 public class DetailsModel : PageModel
 {
     private readonly IBookingService _bookingService;
@@ -217,5 +220,64 @@ public class DetailsModel : PageModel
         public string DayOfWeekLabel { get; set; } = string.Empty;
         public string DayMonthLabel { get; set; } = string.Empty;
         public bool IsSelected { get; set; }
+    }
+}
+
+/// <summary>
+/// Returns 401/Login redirect before Razor Pages antiforgery validation when a user's cookie was rejected or missing on mutation POST handlers.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class)]
+file sealed class EnsureAuthenticatedBeforeAntiforgeryOnBookingPostAttribute : Attribute, IAsyncAuthorizationFilter, IOrderedFilter
+{
+    public int Order => 500;
+
+    public Task OnAuthorizationAsync(AuthorizationFilterContext context)
+    {
+        HttpRequest request = context.HttpContext.Request;
+        if (!HttpMethods.IsPost(request.Method))
+        {
+            return Task.CompletedTask;
+        }
+
+        string? handler = context.RouteData.Values["handler"] as string;
+        if (string.IsNullOrWhiteSpace(handler))
+        {
+            handler = request.Query["handler"].ToString();
+        }
+
+        bool isToggleHold = string.Equals(handler, "ToggleHold", StringComparison.OrdinalIgnoreCase);
+        bool isConfirm = string.Equals(handler, "Confirm", StringComparison.OrdinalIgnoreCase);
+        if (!isToggleHold && !isConfirm)
+        {
+            return Task.CompletedTask;
+        }
+
+        ClaimsPrincipal user = context.HttpContext.User;
+        if (user.Identity?.IsAuthenticated == true && user.GetUserId() is not null)
+        {
+            return Task.CompletedTask;
+        }
+
+        string? idValue = context.RouteData.Values["id"]?.ToString();
+        string venuePath = int.TryParse(idValue, out int venueId) ? $"/Venues/{venueId}" : "/Venues";
+
+        if (isToggleHold)
+        {
+            context.Result = new JsonResult(new
+            {
+                ok = false,
+                requiresLogin = true,
+                loginUrl = $"/Account/Login?ReturnUrl={venuePath}"
+            })
+            {
+                StatusCode = StatusCodes.Status401Unauthorized
+            };
+        }
+        else
+        {
+            context.Result = new RedirectToPageResult("/Account/Login", new { ReturnUrl = venuePath });
+        }
+
+        return Task.CompletedTask;
     }
 }

@@ -6,6 +6,9 @@
     ViewData["Title"] = Model.Matrix.VenueName;
     CultureInfo viCulture = CultureInfo.GetCultureInfo("vi-VN");
     string selectedDateStr = Model.Matrix.PlayDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    bool isAdminViewer = User.IsAdmin();
+    bool isOwnerViewer = Model.CurrentUserId.HasValue && Model.CurrentUserId.Value == Model.Matrix.OwnerId;
+    bool isReadOnlyOversight = isAdminViewer || isOwnerViewer;
 }
 
 <div id="scheduleApp"
@@ -75,6 +78,27 @@
                 </div>
             }
         </section>
+    }
+
+    @if (isAdminViewer)
+    {
+        <div class="cb-alert cb-alert--info" role="status">
+            <div>
+                <strong>Chế độ giám sát sàn (chỉ xem).</strong>
+                <span> Tài khoản Quản trị sàn chỉ theo dõi lịch trực tiếp và không tham gia đặt lịch sân.</span>
+            </div>
+            <a asp-page="/Admin/Index" class="cb-btn cb-btn--outline cb-btn--sm">Về Quản trị sàn</a>
+        </div>
+    }
+    else if (isOwnerViewer)
+    {
+        <div class="cb-alert cb-alert--info" role="status">
+            <div>
+                <strong>Chế độ xem chủ sân (chỉ xem).</strong>
+                <span> Bạn là chủ sở hữu cụm sân này nên không thể tự đặt lịch trên sân của chính mình.</span>
+            </div>
+            <a href="/Owner?venueId=@Model.Matrix.VenueId" class="cb-btn cb-btn--outline cb-btn--sm">Vào Kênh Chủ sân</a>
+        </div>
     }
 
     <div class="cb-toolbar">
@@ -198,23 +222,26 @@
         }
     </div>
 
-    <div id="holdStickyBar" class="cb-hold-bar @(Model.Matrix.MyHolds.Count > 0 ? "is-visible" : "")">
-        <div class="cb-hold-bar__info">
-            <span class="cb-badge cb-badge--held"><span id="holdCountBadge">@Model.Matrix.MyHolds.Count</span> khung giờ</span>
-            <span id="holdSummaryText">@Model.Matrix.MyHolds.SummaryText</span>
-            <span class="cb-hold-bar__timer">
-                Giữ chỗ còn
-                <strong id="holdEarliestTimer" data-expires-utc="@FormatUtcIso(Model.Matrix.MyHolds.EarliestExpiresAtUtc)">@FormatCountdown(Model.Matrix.MyHolds.EarliestExpiresAtUtc)</strong>
-            </span>
+    @if (!isReadOnlyOversight)
+    {
+        <div id="holdStickyBar" class="cb-hold-bar @(Model.Matrix.MyHolds.Count > 0 ? "is-visible" : "")">
+            <div class="cb-hold-bar__info">
+                <span class="cb-badge cb-badge--held"><span id="holdCountBadge">@Model.Matrix.MyHolds.Count</span> khung giờ</span>
+                <span id="holdSummaryText">@Model.Matrix.MyHolds.SummaryText</span>
+                <span class="cb-hold-bar__timer">
+                    Giữ chỗ còn
+                    <strong id="holdEarliestTimer" data-expires-utc="@FormatUtcIso(Model.Matrix.MyHolds.EarliestExpiresAtUtc)">@FormatCountdown(Model.Matrix.MyHolds.EarliestExpiresAtUtc)</strong>
+                </span>
+            </div>
+            <form method="post" asp-page-handler="Confirm" asp-route-id="@Model.Matrix.VenueId" class="cb-hold-bar__actions">
+                <input type="hidden" name="date" value="@selectedDateStr" />
+                <input type="hidden" name="sport" value="@Model.SportFilter" />
+                <input type="text" name="notes" class="cb-input cb-hold-bar__note" placeholder="Ghi chú (tùy chọn)" maxlength="120" />
+                <strong id="holdTotalPrice" class="cb-hold-bar__total">@FormatVnd(Model.Matrix.MyHolds.TotalPriceVnd, viCulture)</strong>
+                <button type="submit" class="cb-btn cb-btn--primary">Xác nhận đặt sân</button>
+            </form>
         </div>
-        <form method="post" asp-page-handler="Confirm" asp-route-id="@Model.Matrix.VenueId" class="cb-hold-bar__actions">
-            <input type="hidden" name="date" value="@selectedDateStr" />
-            <input type="hidden" name="sport" value="@Model.SportFilter" />
-            <input type="text" name="notes" class="cb-input cb-hold-bar__note" placeholder="Ghi chú (tùy chọn)" maxlength="120" />
-            <strong id="holdTotalPrice" class="cb-hold-bar__total">@FormatVnd(Model.Matrix.MyHolds.TotalPriceVnd, viCulture)</strong>
-            <button type="submit" class="cb-btn cb-btn--primary">Xác nhận đặt sân</button>
-        </form>
-    </div>
+    }
 </div>
 
 @functions {

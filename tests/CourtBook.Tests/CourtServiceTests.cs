@@ -15,7 +15,6 @@ public class CourtServiceTests
         // Both Venue1 and Venue2 already have PB-01; adding PB-01 to Venue1 again must fail
         var dupCode = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -31,7 +30,6 @@ public class CourtServiceTests
 
         var created = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -51,7 +49,6 @@ public class CourtServiceTests
 
         var updated = await scope.CourtService.UpdateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 Id = seed.Venue1Pickleball.Id,
@@ -72,14 +69,13 @@ public class CourtServiceTests
     }
 
     [Fact]
-    public async Task CourtMutations_EnforceOwnerTenantIsolation_WhileAdminCanManageAnyVenue()
+    public async Task CourtMutations_EnforceOwnerTenantIsolation_AndRejectAdminBypass()
     {
         using var scope = new TestContextScope();
         SeededTestData seed = await scope.SeedMinimalAsync();
 
         var crossCreate = await scope.CourtService.CreateAsync(
             seed.Owner2.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -94,7 +90,6 @@ public class CourtServiceTests
 
         var crossUpdate = await scope.CourtService.UpdateAsync(
             seed.Owner2.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 Id = seed.Venue1Pickleball.Id,
@@ -110,16 +105,19 @@ public class CourtServiceTests
 
         var crossToggle = await scope.CourtService.ToggleActiveAsync(
             seed.Owner2.Id,
-            isAdmin: false,
             seed.Venue1Pickleball.Id);
         Assert.False(crossToggle.Succeeded);
 
         var adminToggle = await scope.CourtService.ToggleActiveAsync(
-            999,
-            isAdmin: true,
+            seed.Admin.Id,
             seed.Venue1Pickleball.Id);
-        Assert.True(adminToggle.Succeeded);
-        Assert.False(adminToggle.Data!.IsActive);
+        Assert.False(adminToggle.Succeeded);
+
+        var ownerToggle = await scope.CourtService.ToggleActiveAsync(
+            seed.Owner1.Id,
+            seed.Venue1Pickleball.Id);
+        Assert.True(ownerToggle.Succeeded);
+        Assert.False(ownerToggle.Data!.IsActive);
     }
 
     [Fact]
@@ -130,7 +128,7 @@ public class CourtServiceTests
         DateOnly futureDate = new(2026, 11, 22);
 
         ServiceResult<Court> toggledOff = await scope.CourtService.ToggleActiveAsync(
-            seed.Owner1.Id, isAdmin: false, seed.Venue1Pickleball.Id);
+            seed.Owner1.Id, seed.Venue1Pickleball.Id);
         Assert.True(toggledOff.Succeeded);
         Assert.False(toggledOff.Data!.IsActive);
         Assert.Contains(
@@ -148,7 +146,7 @@ public class CourtServiceTests
         Assert.All(row.Slots, s => Assert.Equal(SlotVisualState.Maintenance, s.State));
 
         ServiceResult<Court> toggledOn = await scope.CourtService.ToggleActiveAsync(
-            seed.Owner1.Id, isAdmin: false, seed.Venue1Pickleball.Id);
+            seed.Owner1.Id, seed.Venue1Pickleball.Id);
         Assert.True(toggledOn.Succeeded);
         Assert.True(toggledOn.Data!.IsActive);
     }
@@ -161,7 +159,6 @@ public class CourtServiceTests
 
         var invalidPrice = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,
@@ -177,7 +174,6 @@ public class CourtServiceTests
 
         var missingSurface = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = seed.Venue1.Id,

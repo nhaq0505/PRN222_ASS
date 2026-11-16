@@ -51,7 +51,7 @@
         <div class="cb-kpi-card">
             <div class="cb-kpi-card__label">Tổng doanh thu GMV ngày</div>
             <div class="cb-kpi-card__value">@($"{Model.Dashboard.TodayPlatformGmvVnd.ToString("N0", viCulture)}đ")</div>
-            <div class="cb-kpi-card__sub">Đơn xác nhận &amp; đã check-in</div>
+            <div class="cb-kpi-card__sub">Thực thu Check-in: @($"{Model.Dashboard.TodayRealizedRevenueVnd.ToString("N0", viCulture)}đ") · Chờ thu: @($"{Model.Dashboard.TodayExpectedRevenueVnd.ToString("N0", viCulture)}đ")</div>
         </div>
     </div>
 
@@ -97,8 +97,7 @@
                                 <th>Cụm sân</th>
                                 <th>Chủ sân</th>
                                 <th>Số sân</th>
-                                <th>Đơn hôm nay</th>
-                                <th>GMV ngày</th>
+                                <th>Đơn / Doanh thu ngày</th>
                                 <th>Trạng thái</th>
                                 <th>Thao tác</th>
                             </tr>
@@ -137,8 +136,13 @@
                                         <div class="cb-table__sub">@v.OwnerEmail</div>
                                     </td>
                                     <td class="cb-tabular">@v.CourtCount sân</td>
-                                    <td class="cb-tabular">@v.TodayBookings</td>
-                                    <td class="cb-tabular"><strong>@($"{v.TodayRevenueVnd.ToString("N0", viCulture)}đ")</strong></td>
+                                    <td class="cb-tabular">
+                                        <div>@v.TodayBookings đơn · Thực thu <strong>@($"{v.TodayRevenueVnd.ToString("N0", viCulture)}đ")</strong></div>
+                                        @if (v.TodayExpectedRevenueVnd > 0)
+                                        {
+                                            <div class="cb-table__sub">(Chờ thu @($"{v.TodayExpectedRevenueVnd.ToString("N0", viCulture)}đ"))</div>
+                                        }
+                                    </td>
                                     <td><span class="cb-badge @badgeClass">@statusLabel</span></td>
                                     <td>
                                         <div class="cb-table__actions">

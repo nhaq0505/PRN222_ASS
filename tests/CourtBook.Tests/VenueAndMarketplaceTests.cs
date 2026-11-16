@@ -98,7 +98,6 @@ public class VenueAndMarketplaceTests
 
         ServiceResult<Venue> createRes = await scope.VenueService.CreateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Name = "Cụm Sân Đảo Kim Cương",
@@ -118,7 +117,6 @@ public class VenueAndMarketplaceTests
 
         ServiceResult<Court> addCourtRes = await scope.CourtService.CreateAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new CourtUpsertDto
             {
                 VenueId = newVenue.Id,
@@ -165,7 +163,6 @@ public class VenueAndMarketplaceTests
 
         var badHours = await scope.VenueService.CreateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Name = "Sân Test Giờ",
@@ -179,7 +176,6 @@ public class VenueAndMarketplaceTests
 
         var first = await scope.VenueService.CreateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: true,
             new VenueUpsertDto
             {
                 Name = "Sân Đồng Danh",
@@ -189,7 +185,6 @@ public class VenueAndMarketplaceTests
             });
         var second = await scope.VenueService.CreateVenueAsync(
             seed.Owner2.Id,
-            isAdmin: true,
             new VenueUpsertDto
             {
                 Name = "Sân Đồng Danh",
@@ -200,19 +195,20 @@ public class VenueAndMarketplaceTests
 
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
-        Assert.Equal("san-dong-danh", first.Data!.Slug);
-        Assert.Equal("san-dong-danh-2", second.Data!.Slug);
+        Assert.Equal(VenueStatus.PendingApproval, first.Data!.Status);
+        Assert.Equal(VenueStatus.PendingApproval, second.Data!.Status);
+        Assert.Equal("san-dong-danh", first.Data.Slug);
+        Assert.Equal("san-dong-danh-2", second.Data.Slug);
     }
 
     [Fact]
-    public async Task UpdateVenueAsync_EnforcesTenantIsolation_AllowsOwnerAndAdmin()
+    public async Task UpdateVenueAsync_EnforcesTenantIsolation_RejectsCrossOwnerAndAdmin()
     {
         using var scope = new TestContextScope();
         SeededTestData seed = await scope.SeedMinimalAsync();
 
         var crossOwnerAttempt = await scope.VenueService.UpdateVenueAsync(
             seed.Owner2.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Id = seed.Venue1.Id,
@@ -227,7 +223,6 @@ public class VenueAndMarketplaceTests
 
         var ownerUpdate = await scope.VenueService.UpdateVenueAsync(
             seed.Owner1.Id,
-            isAdmin: false,
             new VenueUpsertDto
             {
                 Id = seed.Venue1.Id,
@@ -244,8 +239,7 @@ public class VenueAndMarketplaceTests
         Assert.Equal("Thảo Điền Racquet Club Pro", ownerUpdate.Data!.Name);
 
         var adminUpdate = await scope.VenueService.UpdateVenueAsync(
-            999,
-            isAdmin: true,
+            seed.Admin.Id,
             new VenueUpsertDto
             {
                 Id = seed.Venue1.Id,
@@ -256,7 +250,7 @@ public class VenueAndMarketplaceTests
                 OpenHour = 6,
                 CloseHour = 22
             });
-        Assert.True(adminUpdate.Succeeded);
+        Assert.False(adminUpdate.Succeeded);
     }
 
     [Fact]
@@ -273,6 +267,9 @@ public class VenueAndMarketplaceTests
         Assert.Equal(2, dash.TotalMembersCount);
         Assert.True(dash.TodayBookingsCount > 0);
         Assert.True(dash.TodayPlatformGmvVnd > 0m);
+        Assert.True(dash.TodayRealizedRevenueVnd > 0m);
+        Assert.True(dash.TodayExpectedRevenueVnd > 0m);
+        Assert.Equal(dash.TodayPlatformGmvVnd, dash.TodayRealizedRevenueVnd + dash.TodayExpectedRevenueVnd);
         Assert.Equal(4, dash.AllVenues.Count);
         Assert.Equal(5, dash.AllUsers.Count);
 

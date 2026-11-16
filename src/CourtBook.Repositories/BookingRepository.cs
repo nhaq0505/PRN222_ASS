@@ -37,6 +37,15 @@ public class BookingRepository : IBookingRepository
     public Task<int> CountActiveHoldsByUserAsync(int userId, DateTime utcNow, int? venueId = null, CancellationToken ct = default)
         => _dao.CountActiveHoldsByUserAsync(userId, utcNow, venueId, ct);
 
+    public Task<List<Booking>> GetActiveHoldsByCourtAsync(int courtId, DateTime utcNow, CancellationToken ct = default)
+        => _dao.GetActiveHoldsByCourtAsync(courtId, utcNow, ct);
+
+    public Task<List<Booking>> GetActiveHoldsByVenueAsync(int venueId, DateTime utcNow, CancellationToken ct = default)
+        => _dao.GetActiveHoldsByVenueAsync(venueId, utcNow, ct);
+
+    public Task<int> CountUpcomingConfirmedByCourtAsync(int courtId, DateOnly todayVn, int currentHourVn, CancellationToken ct = default)
+        => _dao.CountUpcomingConfirmedByCourtAsync(courtId, todayVn, currentHourVn, ct);
+
     public Task<List<Booking>> GetExpiredHoldsAsync(DateTime utcNow, CancellationToken ct = default)
         => _dao.GetExpiredHoldsAsync(utcNow, ct);
 

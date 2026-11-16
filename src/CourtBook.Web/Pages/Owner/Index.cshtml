@@ -232,9 +232,9 @@
                 <div class="cb-kpi-card__sub">Đã check-in: @Model.Portal.TodayCheckedInCount</div>
             </div>
             <div class="cb-kpi-card">
-                <div class="cb-kpi-card__label">Doanh thu ngày</div>
+                <div class="cb-kpi-card__label">Thực thu hôm nay (Check-in)</div>
                 <div class="cb-kpi-card__value">@($"{Model.Portal.TodayRevenueVnd.ToString("N0", viCulture)}đ")</div>
-                <div class="cb-kpi-card__sub">Đơn xác nhận &amp; đã check-in</div>
+                <div class="cb-kpi-card__sub">Chờ thu (đã đặt): @($"{Model.Portal.TodayExpectedRevenueVnd.ToString("N0", viCulture)}đ") · Tổng đặt: @($"{Model.Portal.TodayTotalBookedValueVnd.ToString("N0", viCulture)}đ")</div>
             </div>
             <div class="cb-kpi-card">
                 <div class="cb-kpi-card__label">Công suất lấp đầy</div>
@@ -341,6 +341,10 @@
                                                         <button type="submit" class="cb-btn cb-btn--primary cb-btn--sm">Check-in</button>
                                                     </form>
                                                 }
+                                                else if (b.Status == BookingStatus.Confirmed)
+                                                {
+                                                    <span class="cb-table__sub" style="margin-top:0;color:var(--cb-ink-muted);">Check-in đúng ngày chơi</span>
+                                                }
                                                 @if (b.CanCancel)
                                                 {
                                                     <form method="post"
@@ -352,7 +356,7 @@
                                                         <button type="submit" class="cb-btn cb-btn--danger-outline cb-btn--sm">Hủy</button>
                                                     </form>
                                                 }
-                                                @if (!b.CanCheckIn && !b.CanCancel)
+                                                @if (!b.CanCheckIn && !b.CanCancel && b.Status != BookingStatus.Confirmed)
                                                 {
                                                     <span class="cb-table__sub">—</span>
                                                 }

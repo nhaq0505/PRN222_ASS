@@ -159,6 +159,49 @@ public class BookingDao
         return query.CountAsync(ct);
     }
 
+    public Task<List<Booking>> GetActiveHoldsByCourtAsync(
+        int courtId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+        => _context.Bookings
+            .Include(b => b.Court)
+                .ThenInclude(c => c!.Venue)
+            .Where(b =>
+                b.CourtId == courtId &&
+                b.Status == BookingStatus.Held &&
+                (b.HoldExpiresAtUtc == null || b.HoldExpiresAtUtc > utcNow))
+            .OrderBy(b => b.PlayDate)
+            .ThenBy(b => b.StartHour)
+            .ToListAsync(ct);
+
+    public Task<List<Booking>> GetActiveHoldsByVenueAsync(
+        int venueId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+        => _context.Bookings
+            .Include(b => b.Court)
+                .ThenInclude(c => c!.Venue)
+            .Where(b =>
+                b.Court != null &&
+                b.Court.VenueId == venueId &&
+                b.Status == BookingStatus.Held &&
+                (b.HoldExpiresAtUtc == null || b.HoldExpiresAtUtc > utcNow))
+            .OrderBy(b => b.PlayDate)
+            .ThenBy(b => b.StartHour)
+            .ThenBy(b => b.CourtId)
+            .ToListAsync(ct);
+
+    public Task<int> CountUpcomingConfirmedByCourtAsync(
+        int courtId,
+        DateOnly todayVn,
+        int currentHourVn,
+        CancellationToken ct = default)
+        => _context.Bookings.CountAsync(b =>
+            b.CourtId == courtId &&
+            b.Status == BookingStatus.Confirmed &&
+            (b.PlayDate > todayVn || (b.PlayDate == todayVn && b.StartHour > currentHourVn)),
+            ct);
+
     public Task<List<Booking>> GetExpiredHoldsAsync(DateTime utcNow, CancellationToken ct = default)
         => _context.Bookings
             .Include(b => b.Court)

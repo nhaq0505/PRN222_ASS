@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using CourtBook.BusinessObjects.Entities;
 using CourtBook.BusinessObjects.Enums;
 using CourtBook.Repositories;
+using CourtBook.Services.Helpers;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 using CourtBook.Services.Validation;
@@ -20,22 +21,26 @@ public class VenueService : IVenueService
         "amber"
     };
 
-    private static readonly TimeZoneInfo VietnamTimeZone = ResolveVietnamTimeZone();
-
     private readonly IVenueRepository _venueRepository;
     private readonly ICourtRepository _courtRepository;
     private readonly IBookingRepository _bookingRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly ISlotRealtimeNotifier _notifier;
     private readonly TimeProvider _timeProvider;
 
     public VenueService(
         IVenueRepository venueRepository,
         ICourtRepository courtRepository,
         IBookingRepository bookingRepository,
+        IUserRepository userRepository,
+        ISlotRealtimeNotifier? notifier = null,
         TimeProvider? timeProvider = null)
     {
         _venueRepository = venueRepository;
         _courtRepository = courtRepository;
         _bookingRepository = bookingRepository;
+        _userRepository = userRepository;
+        _notifier = notifier ?? NullSlotRealtimeNotifier.Instance;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -60,7 +65,7 @@ public class VenueService : IVenueService
         int totalActiveCourts = await _courtRepository.CountActiveMarketplaceCourtsAsync(ct);
 
         DateTime utcNow = _timeProvider.GetUtcNow().UtcDateTime;
-        DateTime nowVn = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), VietnamTimeZone);
+        DateTime nowVn = VietnamTimeHelper.FromUtc(utcNow);
         DateOnly currentDateVn = DateOnly.FromDateTime(nowVn);
 
         List<Booking> todayBookings = await _bookingRepository.GetBookingsForDateAsync(todayVn, activeOnly: true, ct);
@@ -159,10 +164,15 @@ public class VenueService : IVenueService
 
     public async Task<ServiceResult<Venue>> CreateVenueAsync(
         int ownerUserId,
-        bool isAdmin,
         VenueUpsertDto dto,
         CancellationToken ct = default)
     {
+        string? actorError = await AuthorizeVenueOwnerActorAsync(ownerUserId, ct);
+        if (actorError is not null)
+        {
+            return ServiceResult<Venue>.Fail(actorError);
+        }
+
         string? validationError = ValidateDto(
             dto,
             out string name,
@@ -205,7 +215,7 @@ public class VenueService : IVenueService
             OpenHour = dto!.OpenHour,
             CloseHour = dto.CloseHour,
             OwnerId = ownerUserId,
-            Status = isAdmin ? VenueStatus.Active : VenueStatus.PendingApproval,
+            Status = VenueStatus.PendingApproval,
             CreatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime
         };
 
@@ -215,10 +225,15 @@ public class VenueService : IVenueService
 
     public async Task<ServiceResult<Venue>> UpdateVenueAsync(
         int actorUserId,
-        bool isAdmin,
         VenueUpsertDto dto,
         CancellationToken ct = default)
     {
+        string? actorError = await AuthorizeVenueOwnerActorAsync(actorUserId, ct);
+        if (actorError is not null)
+        {
+            return ServiceResult<Venue>.Fail(actorError);
+        }
+
         if (dto is null || !dto.Id.HasValue || dto.Id.Value <= 0)
         {
             return ServiceResult<Venue>.Fail("Không xác định được cụm sân cần cập nhật.");
@@ -230,7 +245,7 @@ public class VenueService : IVenueService
             return ServiceResult<Venue>.Fail("Không tìm thấy cụm sân.");
         }
 
-        if (!isAdmin && venue.OwnerId != actorUserId)
+        if (venue.OwnerId != actorUserId)
         {
             return ServiceResult<Venue>.Fail("Bạn không có quyền chỉnh sửa cụm sân của chủ sân khác.");
         }
@@ -251,6 +266,8 @@ public class VenueService : IVenueService
             return ServiceResult<Venue>.Fail(validationError);
         }
 
+        bool hoursChanged = venue.OpenHour != dto.OpenHour || venue.CloseHour != dto.CloseHour;
+
         venue.Name = name;
         venue.District = district;
         venue.Address = address;
@@ -269,6 +286,23 @@ public class VenueService : IVenueService
         venue.CloseHour = dto.CloseHour;
 
         await _venueRepository.UpdateAsync(venue, ct);
+
+        if (hoursChanged)
+        {
+            DateTime utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+            List<Booking> activeHolds = await _bookingRepository.GetActiveHoldsByVenueAsync(venue.Id, utcNow, ct);
+            List<Booking> outOfRangeHolds = activeHolds
+                .Where(h => h.StartHour < venue.OpenHour || h.StartHour >= venue.CloseHour)
+                .ToList();
+
+            await HoldExpirationHelper.ExpireHoldsAndBroadcastAsync(
+                outOfRangeHolds,
+                _bookingRepository,
+                _notifier,
+                fallbackVenueId: venue.Id,
+                ct: ct);
+        }
+
         return ServiceResult<Venue>.Ok(venue);
     }
 
@@ -378,22 +412,19 @@ public class VenueService : IVenueService
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    private static TimeZoneInfo ResolveVietnamTimeZone()
+    private async Task<string?> AuthorizeVenueOwnerActorAsync(int actorUserId, CancellationToken ct)
     {
-        try
+        AppUser? actor = await ActorGuard.GetActiveActorAsync(_userRepository, actorUserId, ct);
+        if (actor is null)
         {
-            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+            return ActorGuard.InactiveOrMissingMessage;
         }
-        catch (TimeZoneNotFoundException)
+
+        if (actor.Role != UserRole.CourtOwner)
         {
-            try
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                return TimeZoneInfo.CreateCustomTimeZone("ICT", TimeSpan.FromHours(7), "Indochina Time", "ICT");
-            }
+            return "Chỉ tài khoản Chủ cụm sân mới được đăng ký / quản lý cụm sân.";
         }
+
+        return null;
     }
 }

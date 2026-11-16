@@ -11,6 +11,9 @@ public interface IBookingRepository
     Task<Booking?> GetActiveSlotAsync(int courtId, DateOnly playDate, int startHour, CancellationToken ct = default);
     Task<List<Booking>> GetActiveHoldsByUserAsync(int userId, int? venueId, DateTime utcNow, CancellationToken ct = default);
     Task<int> CountActiveHoldsByUserAsync(int userId, DateTime utcNow, int? venueId = null, CancellationToken ct = default);
+    Task<List<Booking>> GetActiveHoldsByCourtAsync(int courtId, DateTime utcNow, CancellationToken ct = default);
+    Task<List<Booking>> GetActiveHoldsByVenueAsync(int venueId, DateTime utcNow, CancellationToken ct = default);
+    Task<int> CountUpcomingConfirmedByCourtAsync(int courtId, DateOnly todayVn, int currentHourVn, CancellationToken ct = default);
     Task<List<Booking>> GetExpiredHoldsAsync(DateTime utcNow, CancellationToken ct = default);
     Task<List<Booking>> GetBookingsByUserAsync(int userId, CancellationToken ct = default);
     Task<Booking> AddAsync(Booking booking, CancellationToken ct = default);

@@ -1,6 +1,7 @@
 using CourtBook.BusinessObjects.Entities;
 using CourtBook.BusinessObjects.Enums;
 using CourtBook.Repositories;
+using CourtBook.Services.Helpers;
 using CourtBook.Services.Interfaces;
 using CourtBook.Services.Models;
 
@@ -11,15 +12,21 @@ public class PlatformAdminService : IPlatformAdminService
     private readonly IVenueRepository _venueRepository;
     private readonly IUserRepository _userRepository;
     private readonly IBookingRepository _bookingRepository;
+    private readonly ISlotRealtimeNotifier _notifier;
+    private readonly TimeProvider _timeProvider;
 
     public PlatformAdminService(
         IVenueRepository venueRepository,
         IUserRepository userRepository,
-        IBookingRepository bookingRepository)
+        IBookingRepository bookingRepository,
+        ISlotRealtimeNotifier? notifier = null,
+        TimeProvider? timeProvider = null)
     {
         _venueRepository = venueRepository;
         _userRepository = userRepository;
         _bookingRepository = bookingRepository;
+        _notifier = notifier ?? NullSlotRealtimeNotifier.Instance;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<PlatformAdminDashboardDto> GetDashboardAsync(
@@ -40,7 +47,10 @@ public class PlatformAdminService : IPlatformAdminService
             .GroupBy(b => b.Court!.VenueId)
             .ToDictionary(
                 g => g.Key,
-                g => (Count: g.Count(), Revenue: g.Sum(b => b.PriceVnd)));
+                g => (
+                    Count: g.Count(),
+                    RealizedRevenue: g.Where(b => b.Status == BookingStatus.CheckedIn).Sum(b => b.PriceVnd),
+                    ExpectedRevenue: g.Where(b => b.Status == BookingStatus.Confirmed).Sum(b => b.PriceVnd)));
 
         List<Venue> filteredVenues = statusFilter.HasValue
             ? allVenues.Where(v => v.Status == statusFilter.Value).ToList()
@@ -61,7 +71,8 @@ public class PlatformAdminService : IPlatformAdminService
                 OwnerEmail = v.Owner?.Email ?? string.Empty,
                 CourtCount = v.Courts.Count,
                 TodayBookings = stats.Count,
-                TodayRevenueVnd = stats.Revenue,
+                TodayRevenueVnd = stats.RealizedRevenue,
+                TodayExpectedRevenueVnd = stats.ExpectedRevenue,
                 Status = v.Status,
                 CreatedAtUtc = AsUtc(v.CreatedAtUtc)
             };
@@ -79,6 +90,13 @@ public class PlatformAdminService : IPlatformAdminService
             CreatedAtUtc = AsUtc(u.CreatedAtUtc)
         }).ToList();
 
+        decimal realizedPlatformRevenue = validDateBookings
+            .Where(b => b.Status == BookingStatus.CheckedIn)
+            .Sum(b => b.PriceVnd);
+        decimal expectedPlatformRevenue = validDateBookings
+            .Where(b => b.Status == BookingStatus.Confirmed)
+            .Sum(b => b.PriceVnd);
+
         return new PlatformAdminDashboardDto
         {
             SelectedDate = selectedDate,
@@ -88,7 +106,9 @@ public class PlatformAdminService : IPlatformAdminService
             TotalOwnersCount = allUsers.Count(u => u.Role == UserRole.CourtOwner),
             TotalMembersCount = allUsers.Count(u => u.Role == UserRole.Member),
             TodayBookingsCount = validDateBookings.Count,
-            TodayPlatformGmvVnd = validDateBookings.Sum(b => b.PriceVnd),
+            TodayPlatformGmvVnd = realizedPlatformRevenue + expectedPlatformRevenue,
+            TodayRealizedRevenueVnd = realizedPlatformRevenue,
+            TodayExpectedRevenueVnd = expectedPlatformRevenue,
             AllVenues = venueRows,
             AllUsers = userRows
         };
@@ -132,6 +152,16 @@ public class PlatformAdminService : IPlatformAdminService
 
         venue.Status = VenueStatus.Suspended;
         await _venueRepository.UpdateAsync(venue, ct);
+
+        DateTime utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+        List<Booking> activeHolds = await _bookingRepository.GetActiveHoldsByVenueAsync(venueId, utcNow, ct);
+        await HoldExpirationHelper.ExpireHoldsAndBroadcastAsync(
+            activeHolds,
+            _bookingRepository,
+            _notifier,
+            fallbackVenueId: venueId,
+            ct: ct);
+
         return ServiceResult<Venue>.Ok(venue);
     }
 
@@ -176,6 +206,18 @@ public class PlatformAdminService : IPlatformAdminService
 
         user.IsActive = !user.IsActive;
         await _userRepository.UpdateAsync(user, ct);
+
+        if (!user.IsActive)
+        {
+            DateTime utcNow = _timeProvider.GetUtcNow().UtcDateTime;
+            List<Booking> activeHolds = await _bookingRepository.GetActiveHoldsByUserAsync(targetUserId, null, utcNow, ct);
+            await HoldExpirationHelper.ExpireHoldsAndBroadcastAsync(
+                activeHolds,
+                _bookingRepository,
+                _notifier,
+                ct: ct);
+        }
+
         return ServiceResult<AppUser>.Ok(user);
     }
 

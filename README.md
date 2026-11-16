@@ -20,7 +20,7 @@ Solution [`CourtBook.sln`](CourtBook.sln) được tổ chức theo kiến trúc
 | **Layer 3: Repositories** | `src/CourtBook.Repositories` | Các interface (`IUserRepository`, `IVenueRepository`, `ICourtRepository`, `IBookingRepository`) và implementation bọc DAO phục vụ Dependency Injection & Unit Testing. |
 | **Layer 4: Services** | `src/CourtBook.Services` | Business logic, DTO, kiểm tra URL ảnh (`ImageUrlValidator`), và kiểm soát phân quyền theo chủ sân (`AuthService`, `VenueService`, `CourtService`, `BookingService`, `PlatformAdminService`), khóa đồng bộ slot (`SemaphoreSlim`), tự động nhả giữ chỗ hết hạn, phát sự kiện real-time qua `ISlotRealtimeNotifier`. |
 | **Layer 5: Presentation (Web)** | `src/CourtBook.Web` | Razor Pages (`Index`, `Venues/Details`, `MyBookings/Index`, `Owner/Index`, `Admin/Index`, `Account/*`), dịch vụ lưu ảnh multipart (`IPhotoStorageService` / `LocalPhotoStorageService`), SignalR Hub (`/hubs/court`), `SignalRSlotRealtimeNotifier`, `ExpiredHoldCleanupWorker`, Cookie Auth, CSS & JS client (`wwwroot/js/courtbook.js`, `wwwroot/uploads/venues/`). |
-| **Tests** | `tests/CourtBook.Tests` | **35 kiểm thử tự động xUnit** bao phủ `DbInitializer`, đăng ký/đăng nhập theo vai trò, bộ lọc marketplace, vòng đời duyệt cụm sân, cô lập dữ liệu chéo chủ sân (`CourtOwner` tenant isolation), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, bảo toàn `DateTimeKind.Utc`, KPI toàn sàn và validate/lưu trữ ảnh cụm sân & sân con (`VenueAndCourtPhotoTests`). |
+| **Tests** | `tests/CourtBook.Tests` | **53 kiểm thử tự động xUnit** bao phủ `DbInitializer`, đăng ký/đăng nhập theo vai trò, bộ lọc marketplace, vòng đời duyệt cụm sân, cô lập dữ liệu chéo chủ sân (`CourtOwner` tenant isolation), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, bảo toàn `DateTimeKind.Utc`, KPI toàn sàn, validate/lưu trữ ảnh cụm sân & sân con (`VenueAndCourtPhotoTests`), 6 quy tắc đảm bảo nghiệp vụ v4 và phân tách trách nhiệm 3 vai trò v5 (`BusinessRulesHardeningTests`). |
 
 ---
 
@@ -55,7 +55,7 @@ dotnet ef database update --project src/CourtBook.DataAccessObjects --startup-pr
 # 1. Build toàn bộ solution (Release)
 dotnet build CourtBook.sln --configuration Release
 
-# 2. Chạy toàn bộ 35 unit tests (xUnit)
+# 2. Chạy toàn bộ 53 unit tests (xUnit)
 dotnet test CourtBook.sln --configuration Release
 
 # 3. Kiểm tra cú pháp JavaScript client (tùy chọn)
@@ -107,8 +107,8 @@ Khi khởi chạy trên database trống, `DbInitializer.InitializeAsync` tự �
    - Mã sân `Code` là duy nhất trong phạm vi từng cụm sân qua composite unique index `(VenueId, Code)` — cho phép hai chủ sân khác nhau đều có mã sân `PB-01`.
    - `ExpiredHoldCleanupWorker` chạy nền định kỳ mỗi **10 giây** gọi `ReleaseExpiredHoldsAsync()` để chuyển các giữ chỗ quá hạn sang `Expired = 5` và phát `SlotsUpdated` theo từng `venueId`.
 3. **Bảo vệ ranh giới đa chủ sân (Multi-Owner Tenant Isolation):**
-   - Mọi thao tác tại `VenueService`, `CourtService` và `BookingService` (cập nhật cụm sân, thêm/sửa/bảo trì sân con, check-in, hủy đơn của khách) đều kiểm tra `venue.OwnerId == actorUserId || isAdmin`. Chủ sân A không thể xem danh sách thao tác hoặc gửi POST chỉnh sửa cụm sân/sân/đơn của chủ sân B.
-   - Các cụm sân mới do `CourtOwner` tạo ở trạng thái `PendingApproval`, chỉ hiển thị công khai trên `/` và cho phép đặt sân tại `/Venues/{id}` sau khi `Admin` phê duyệt (`Active`).
+   - Mọi thao tác tại `VenueService`, `CourtService` và `BookingService` (cập nhật cụm sân, thêm/sửa/bảo trì sân con, check-in, hủy đơn của khách) đều kiểm tra chặt vai trò `CourtOwner` đang hoạt động và quyền sở hữu `venue.OwnerId == actorUserId` (không còn cơ chế vượt quyền `Admin`). Chủ sân A không thể xem danh sách thao tác hoặc gửi POST chỉnh sửa cụm sân/sân/đơn của chủ sân B.
+   - Các cụm sân mới do `CourtOwner` tạo luôn khởi tạo ở trạng thái `PendingApproval`, chỉ hiển thị công khai trên `/` và cho phép đặt sân tại `/Venues/{id}` sau khi `Admin` phê duyệt (`Active`).
 
 ---
 
@@ -127,3 +127,31 @@ Khi khởi chạy trên database trống, `DbInitializer.InitializeAsync` tự �
    - `LocalPhotoStorageService` lưu tệp vào `wwwroot/uploads/venues/` và `wwwroot/uploads/courts/` dưới tên `<guid>.<ext>`, giới hạn **5MB/tệp**, chỉ nhận phần mở rộng `.jpg`, `.jpeg`, `.png`, `.webp`, đồng thời kiểm tra **magic-byte header** để từ chối các tệp giả mạo phần mở rộng.
    - Tầng Service kiểm tra bổ sung qua `ImageUrlValidator`: chỉ chấp nhận đường dẫn trống, `/uploads/...` hoặc `https://...`, chặn `javascript:`, `data:`, `http://` và đường dẫn traversal.
    - Dữ liệu seed mặc định đính kèm sẵn **5 ảnh `.jpg` thực tế** trong `src/CourtBook.Web/wwwroot/uploads/venues/` cho cả 4 cụm sân và 18 sân con.
+
+---
+
+## 7. Đảm Bảo Nghiệp Vụ & Bảo Toàn Dữ Liệu (v4)
+
+1. **Từ chối phiên tức thì & thu hồi giữ chỗ khi khóa tài khoản:**
+   - `CookieAuthenticationEvents.OnValidatePrincipal` kiểm tra trạng thái `IsActive` và vai trò qua `IAuthService.GetByIdAsync` trên mỗi request; tài khoản bị khóa bị `RejectPrincipal()` + `SignOutAsync` ngay lập tức (trả `401` JSON cho `POST ?handler=ToggleHold` trước bước Antiforgery và chuyển hướng đăng nhập cho trang Razor).
+   - Mọi thao tác thay đổi dữ liệu trong `BookingService`, `VenueService` và `CourtService` kiểm tra `ActorGuard.IsActiveAsync`; khi Admin khóa tài khoản qua `PlatformAdminService.ToggleUserActiveAsync`, toàn bộ slot `Held` đang hoạt động của tài khoản đó được chuyển sang `Expired` và phát `SlotsUpdated` qua SignalR.
+2. **Check-in đúng ngày chơi (`PlayDate == todayVn`):**
+   - `BookingService.CheckInBookingAsync` chỉ cho phép check-in khi `PlayDate` trùng với ngày hiện tại theo giờ Việt Nam (UTC+7); trên `/Owner`, nút `Check-in` chỉ kích hoạt trong đúng ngày chơi và hiển thị chú thích `Check-in đúng ngày chơi` với đơn `Confirmed` ở ngày khác.
+3. **Ngưỡng tự hủy lịch trước 2 giờ cho Hội viên (`MemberCancelLeadHours = 2`):**
+   - Khách đặt sân chỉ được tự hủy đơn `Confirmed` khi còn ít nhất **2 tiếng** trước giờ bắt đầu (`CanMemberSelfCancel`); nhả giữ chỗ tạm thời (`Held`) vẫn luôn được phép và chỉ `CourtOwner` sở hữu cụm sân có quyền hủy ngoại lệ. Trên `/MyBookings`, đơn sát giờ (`< 2h`) ẩn nút `Hủy lịch` và hiển thị `Sát giờ (< 2h) · Liên hệ chủ sân`.
+4. **Tách bạch Doanh thu thực thu (`CheckedIn`) và Doanh thu chờ thu (`Confirmed`):**
+   - `OwnerPortalDto`, `AdminVenueRowDto` và `PlatformAdminDashboardDto` tách riêng thực thu (`CheckedIn`) và chờ thu (`Confirmed`) bên cạnh tổng GMV đặt sân; `/Owner` và `/Admin` hiển thị rõ cả hai chỉ số trên thẻ KPI và bảng doanh thu ngày.
+5. **Giới hạn đặt trước 30 ngày, kiểm tra lại giờ khi xác nhận & biên giá sân:**
+   - `ToggleHoldSlotAsync` giới hạn đặt trước tối đa **30 ngày** (`MaxAdvanceBookingDays = 30`); `ConfirmMyHoldsAsync` kiểm tra lại `IsSlotPastOrStarted` trước khi chốt đơn; `HeldSummaryDto.SummaryText` kèm ngày chơi (`dd/MM`) tránh nhầm khi giữ nhiều ngày; `CourtService.ValidateDto` ràng buộc giá giờ thường và giờ vàng trong khoảng **10.000đ – 5.000.000đ** với `PeakPricePerHour >= BasePricePerHour`.
+6. **Nhả giữ chỗ tức thì & cảnh báo đơn sắp tới khi bảo trì / đổi giờ / khóa cụm sân:**
+   - Khi chuyển sân sang bảo trì (`CourtService.ToggleActiveAsync` / `UpdateAsync`), thu hẹp giờ hoạt động (`VenueService.UpdateVenueAsync`) hoặc tạm khóa cụm sân (`PlatformAdminService.SuspendVenueAsync`), hệ thống tự động hết hạn các `Held` bị ảnh hưởng và phát `SlotsUpdated` qua SignalR. Nếu sân bảo trì đang có đơn `Confirmed` sắp tới, `ServiceResult.WarningMessage` trả cảnh báo và hiển thị trực tiếp trên `/Owner`.
+
+---
+
+## 8. Phân Tách Trách Nhiệm 3 Vai Trò Marketplace (`Admin` vs `CourtOwner` vs `Member`) (v5)
+
+| Vai trò | Phạm vi được phép | Ràng buộc cô lập & Chống vượt quyền |
+| :--- | :--- | :--- |
+| **`Admin`** *(Quản trị sàn)* | Điều hành sàn tại `/Admin`: duyệt cụm sân mới (`PendingApproval` → `Active`), tạm khóa/mở lại cụm sân, khóa/mở tài khoản và giám sát GMV toàn sàn; xem lịch `/Venues/{id}` ở chế độ giám sát chỉ xem. | Không hiển thị và bị chặn truy cập (`403` / `/Account/AccessDenied`) tại `/Owner` và `/MyBookings`. Bị từ chối tại tầng Service khi giữ chỗ/xác nhận đặt sân, check-in, hủy đơn lẻ hoặc tạo/sửa cụm sân & sân con của đối tác. |
+| **`CourtOwner`** *(Chủ cụm sân)* | Quản lý cụm sân/sân con, check-in đúng ngày chơi và hủy đơn tại `/Owner` cho các cụm sân do mình sở hữu (`venue.OwnerId == actorUserId`); đặt lịch tại cụm sân của chủ sân **khác** qua `/Venues/{id}` & `/MyBookings`. | Không được tự đặt lịch trên chính cụm sân mình sở hữu (chống *self-dealing*, hiển thị chế độ chỉ xem trên `/Venues/{id}` của mình); khi đặt ở sân khác vẫn phải tuân thủ ngưỡng tự hủy trước ≥ 2 giờ và không thể check-in/chỉnh sửa tài sản của chủ sân khác. |
+| **`Member`** *(Hội viên)* | Khám phá cụm sân (`/`), giữ chỗ tạm thời 2 phút & đặt lịch (`/Venues/{id}`), tự hủy vé trước ≥ 2 giờ tại `/MyBookings`. | Bị chặn truy cập `/Owner` và `/Admin` (`403` / `/Account/AccessDenied`); mọi thao tác check-in hoặc hủy hộ tại quầy đều đối chiếu vai trò lưu trong CSDL để chống giả mạo claim. |

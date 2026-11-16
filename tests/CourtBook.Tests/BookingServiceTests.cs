@@ -242,15 +242,18 @@ public class BookingServiceTests
         // Another user can rehold 14:00
         Assert.True((await scope.BookingService.ToggleHoldSlotAsync(seed.Member2.Id, seed.Venue1Pickleball.Id, futureDate, 14)).Succeeded);
 
-        // Owner1 checks in b15 at Venue1 -> cannot cancel afterwards even by Admin
+        // Advance to play date so same-day check-in succeeds; Owner1 checks in b15 at Venue1 -> cannot cancel afterwards
+        scope.TimeProvider.SetUtcNow(new DateTimeOffset(2026, 11, 22, 3, 0, 0, TimeSpan.Zero));
         var ownerCheckIn = await scope.BookingService.CheckInBookingAsync(b15, seed.Owner1.Id, UserRole.CourtOwner);
         Assert.True(ownerCheckIn.Succeeded);
         Assert.Equal(BookingStatus.CheckedIn, ownerCheckIn.Data!.Status);
-        Assert.False((await scope.BookingService.CancelBookingAsync(b15, 999, UserRole.Admin)).Succeeded);
+        Assert.False((await scope.BookingService.CancelBookingAsync(b15, seed.Owner1.Id, UserRole.CourtOwner)).Succeeded);
 
-        // Admin can check in b16 on any venue
-        var adminCheckIn = await scope.BookingService.CheckInBookingAsync(b16, 999, UserRole.Admin);
-        Assert.True(adminCheckIn.Succeeded);
+        // Admin cannot check in b16 on partner venues; only owning CourtOwner can
+        var adminCheckIn = await scope.BookingService.CheckInBookingAsync(b16, seed.Admin.Id, UserRole.Admin);
+        Assert.False(adminCheckIn.Succeeded);
+        var ownerCheckInB16 = await scope.BookingService.CheckInBookingAsync(b16, seed.Owner1.Id, UserRole.CourtOwner);
+        Assert.True(ownerCheckInB16.Succeeded);
     }
 
     [Fact]
@@ -280,41 +283,53 @@ public class BookingServiceTests
     [Fact]
     public async Task GetOwnerPortalAsync_ScopesVenuesAndMetricsToOwner_AndPreventsCrossOwnerAccess()
     {
-        using var scope = new TestContextScope();
+        // 2026-11-22 00:00 UTC == 07:00 VN
+        using var scope = new TestContextScope(new DateTimeOffset(2026, 11, 22, 0, 0, 0, TimeSpan.Zero));
         SeededTestData seed = await scope.SeedMinimalAsync();
-        DateOnly futureDate = new(2026, 11, 22);
+        DateOnly todayVn = new(2026, 11, 22);
 
-        // Member1 books 2 slots on Venue1 (08:00 = 140k, 18:00 = 190k), Owner1 checks in 1
-        await scope.BookingService.ToggleHoldSlotAsync(seed.Member1.Id, seed.Venue1Pickleball.Id, futureDate, 8);
-        await scope.BookingService.ToggleHoldSlotAsync(seed.Member1.Id, seed.Venue1Pickleball.Id, futureDate, 18);
+        // Member1 books 2 slots on Venue1 (08:00 = 140k, 18:00 = 190k), Owner1 checks in 1 (08:00)
+        await scope.BookingService.ToggleHoldSlotAsync(seed.Member1.Id, seed.Venue1Pickleball.Id, todayVn, 8);
+        await scope.BookingService.ToggleHoldSlotAsync(seed.Member1.Id, seed.Venue1Pickleball.Id, todayVn, 18);
         var confirmed = await scope.BookingService.ConfirmMyHoldsAsync(seed.Member1.Id, seed.Venue1.Id);
-        await scope.BookingService.CheckInBookingAsync(confirmed.Data![0].Id, seed.Owner1.Id, UserRole.CourtOwner);
+        var checkIn = await scope.BookingService.CheckInBookingAsync(confirmed.Data![0].Id, seed.Owner1.Id, UserRole.CourtOwner);
+        Assert.True(checkIn.Succeeded);
 
         // Member2 holds 1 slot on Venue1Badminton (09:00) and confirms 1 slot on Venue2
-        await scope.BookingService.ToggleHoldSlotAsync(seed.Member2.Id, seed.Venue1Badminton.Id, futureDate, 9);
-        await scope.BookingService.ToggleHoldSlotAsync(seed.Member2.Id, seed.Venue2Pickleball.Id, futureDate, 10);
+        await scope.BookingService.ToggleHoldSlotAsync(seed.Member2.Id, seed.Venue1Badminton.Id, todayVn, 9);
+        await scope.BookingService.ToggleHoldSlotAsync(seed.Member2.Id, seed.Venue2Pickleball.Id, todayVn, 10);
         await scope.BookingService.ConfirmMyHoldsAsync(seed.Member2.Id, seed.Venue2.Id);
 
         // Owner1 passes Owner2's venueId -> isolated to Owner1's own Venue1!
         OwnerPortalDto owner1Portal = await scope.BookingService.GetOwnerPortalAsync(
-            seed.Owner1.Id, isAdmin: false, selectedVenueId: seed.Venue2.Id, selectedDate: futureDate);
+            seed.Owner1.Id, selectedVenueId: seed.Venue2.Id, selectedDate: todayVn);
 
         Assert.Single(owner1Portal.MyVenues);
         Assert.Equal(seed.Venue1.Id, owner1Portal.SelectedVenue!.Id);
         Assert.Equal(2, owner1Portal.TodayConfirmedCount);
         Assert.Equal(1, owner1Portal.TodayCheckedInCount);
-        Assert.Equal(330_000m, owner1Portal.TodayRevenueVnd);
+        Assert.Equal(140_000m, owner1Portal.TodayRevenueVnd);
+        Assert.Equal(190_000m, owner1Portal.TodayExpectedRevenueVnd);
+        Assert.Equal(330_000m, owner1Portal.TodayTotalBookedValueVnd);
         Assert.Equal(1, owner1Portal.ActiveHoldsCount);
         Assert.Equal(Math.Round(2.0 / 32.0 * 100.0, 1), owner1Portal.OccupancyPercent);
         Assert.Equal(3, owner1Portal.DateBookings.Count);
         Assert.Equal(2, owner1Portal.VenueCourts.Count);
 
-        // Admin sees both venues and can inspect Venue2
+        // Owner2 sees only Venue2
+        OwnerPortalDto owner2Portal = await scope.BookingService.GetOwnerPortalAsync(
+            seed.Owner2.Id, selectedVenueId: seed.Venue2.Id, selectedDate: todayVn);
+        Assert.Single(owner2Portal.MyVenues);
+        Assert.Equal(seed.Venue2.Id, owner2Portal.SelectedVenue!.Id);
+        Assert.Equal(1, owner2Portal.TodayConfirmedCount);
+        Assert.Equal(0m, owner2Portal.TodayRevenueVnd);
+        Assert.Equal(130_000m, owner2Portal.TodayExpectedRevenueVnd);
+
+        // Admin owns no venues -> GetOwnerPortalAsync returns empty
         OwnerPortalDto adminPortal = await scope.BookingService.GetOwnerPortalAsync(
-            999, isAdmin: true, selectedVenueId: seed.Venue2.Id, selectedDate: futureDate);
-        Assert.Equal(2, adminPortal.MyVenues.Count);
-        Assert.Equal(seed.Venue2.Id, adminPortal.SelectedVenue!.Id);
-        Assert.Equal(1, adminPortal.TodayConfirmedCount);
+            seed.Admin.Id, selectedVenueId: seed.Venue2.Id, selectedDate: todayVn);
+        Assert.Empty(adminPortal.MyVenues);
+        Assert.Null(adminPortal.SelectedVenue);
     }
 
     [Fact]

@@ -21,6 +21,8 @@ public class OwnerPortalDto
     public int TodayConfirmedCount { get; set; }
     public int TodayCheckedInCount { get; set; }
     public decimal TodayRevenueVnd { get; set; }
+    public decimal TodayExpectedRevenueVnd { get; set; }
+    public decimal TodayTotalBookedValueVnd => TodayRevenueVnd + TodayExpectedRevenueVnd;
     public double OccupancyPercent { get; set; }
     public int ActiveHoldsCount { get; set; }
     public IReadOnlyList<BookingTicketDto> DateBookings { get; set; } = Array.Empty<BookingTicketDto>();
@@ -56,6 +58,7 @@ public class AdminVenueRowDto
     public int CourtCount { get; set; }
     public int TodayBookings { get; set; }
     public decimal TodayRevenueVnd { get; set; }
+    public decimal TodayExpectedRevenueVnd { get; set; }
     public VenueStatus Status { get; set; }
     public DateTime CreatedAtUtc { get; set; }
 }
@@ -82,6 +85,8 @@ public class PlatformAdminDashboardDto
     public int TotalMembersCount { get; set; }
     public int TodayBookingsCount { get; set; }
     public decimal TodayPlatformGmvVnd { get; set; }
+    public decimal TodayRealizedRevenueVnd { get; set; }
+    public decimal TodayExpectedRevenueVnd { get; set; }
     public IReadOnlyList<AdminVenueRowDto> AllVenues { get; set; } = Array.Empty<AdminVenueRowDto>();
     public IReadOnlyList<AdminUserRowDto> AllUsers { get; set; } = Array.Empty<AdminUserRowDto>();
 }

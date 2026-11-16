@@ -74,6 +74,7 @@ public class ScheduleMatrixDto
     public string VenueDescription { get; set; } = string.Empty;
     public string VenueCoverImageUrl { get; set; } = string.Empty;
     public IReadOnlyList<string> VenuePhotoUrls { get; set; } = Array.Empty<string>();
+    public int OwnerId { get; set; }
     public string OwnerName { get; set; } = string.Empty;
     public int OpenHour { get; set; } = 6;
     public int CloseHour { get; set; } = 22;
