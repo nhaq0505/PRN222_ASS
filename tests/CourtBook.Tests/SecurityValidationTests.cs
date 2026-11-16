@@ -34,7 +34,8 @@ public class SecurityValidationTests
     [InlineData("http://insecure.com/photo.jpg", false)]
     public void ImageUrlValidator_ValidatesUrlSecurity(string url, bool expectedValid)
     {
-        bool isValid = ImageUrlValidator.IsValidUrl(url);
+        string? error = ImageUrlValidator.ValidateSingleUrl(url, out string normalized);
+        bool isValid = error == null;
         Assert.Equal(expectedValid, isValid);
     }
 }
