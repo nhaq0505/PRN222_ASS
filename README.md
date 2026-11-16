@@ -20,7 +20,7 @@ Solution [`CourtBook.sln`](CourtBook.sln) được tổ chức theo kiến trúc
 | **Layer 3: Repositories** | `src/CourtBook.Repositories` | Các interface (`IUserRepository`, `IVenueRepository`, `ICourtRepository`, `IBookingRepository`, `IVenueReviewRepository`) và implementation bọc DAO phục vụ Dependency Injection & Unit Testing. |
 | **Layer 4: Services** | `src/CourtBook.Services` | Business logic, DTO, bộ lọc marketplace nâng cao, xuất CSV chuẩn UTF-8 BOM, sinh URL VietQR Napas 24/7, kiểm tra URL ảnh (`ImageUrlValidator`), kiểm tra tài khoản hoạt động (`ActorGuard`), phân quyền chặt theo vai trò (`AuthService`, `VenueService`, `CourtService`, `BookingService`, `VenueReviewService`, `PlatformAdminService`), khóa đồng bộ slot (`SemaphoreSlim`), tự động nhả giữ chỗ hết hạn, và phát sự kiện real-time qua `ISlotRealtimeNotifier`. |
 | **Layer 5: Presentation (Web)** | `src/CourtBook.Web` | Razor Pages (`Index`, `Venues/Details`, `MyBookings/Index`, `Owner/Index`, `Admin/Index`, `Account/Login`, `Account/Register`, `Account/Profile`, `Account/AccessDenied`), dịch vụ lưu ảnh multipart (`IPhotoStorageService` / `LocalPhotoStorageService`), SignalR Hub (`/hubs/court`), `SignalRSlotRealtimeNotifier`, `ExpiredHoldCleanupWorker`, Cookie Auth với `OnValidatePrincipal`, CSS & JS client (`wwwroot/css/site.css`, `wwwroot/js/courtbook.js`, `wwwroot/uploads/venues/`). |
-| **Tests** | `tests/CourtBook.Tests` | **60 kiểm thử tự động xUnit** (100% Passed) bao phủ `DbInitializer`, đăng ký/đăng nhập, cập nhật hồ sơ & đổi mật khẩu, đánh giá 5 sao, VietQR, CSV export, check-in nhanh, hoa hồng sàn 10%, ảnh cụm sân/sân con (`VenueAndCourtPhotoTests`), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, cô lập chủ sân, 6 quy tắc đảm bảo nghiệp vụ và phân tách 3 vai trò (`BusinessRulesHardeningTests`, `NewFeaturesTests`). |
+| **Tests** | `tests/CourtBook.Tests` | **66 kiểm thử tự động xUnit** (100% Passed) bao phủ `DbInitializer`, đăng ký/đăng nhập, cập nhật hồ sơ & đổi mật khẩu, đánh giá 5 sao, VietQR (`VietQrAndPricingTests`), CSV export, check-in nhanh, hoa hồng sàn 10%, ảnh cụm sân/sân con (`VenueAndCourtPhotoTests`), giữ chỗ đồng thời (`Task.WhenAll`), hết hạn TTL 2 phút, cô lập chủ sân, 6 quy tắc đảm bảo nghiệp vụ và phân tách 3 vai trò (`BusinessRulesHardeningTests`, `NewFeaturesTests`). |
 
 ---
 
@@ -68,11 +68,11 @@ dotnet build CourtBook.sln --configuration Release
 ```
 *(Kết quả mong đợi: `0 Warning(s), 0 Error(s)`)*
 
-### Bước 2: Chạy toàn bộ 60 Unit & Integration Tests (xUnit)
+### Bước 2: Chạy toàn bộ 66 Unit & Integration Tests (xUnit)
 ```bash
 dotnet test CourtBook.sln --configuration Release --no-build
 ```
-*(Kết quả mong đợi: `Passed: 60, Failed: 0, Skipped: 0`)*
+*(Kết quả mong đợi: `Passed: 66, Failed: 0, Skipped: 0`)*
 
 ### Bước 3: Khởi chạy ứng dụng Web
 ```bash
@@ -150,5 +150,11 @@ PRN222_ASS/
 │   ├── CourtBook.Services/               # Domain services, DTOs, VietQR, CSV Export, Validation
 │   └── CourtBook.Web/                    # Razor Pages, SignalR Hub, Workers, Static files & Uploads
 └── tests/
-    └── CourtBook.Tests/                  # 60 xUnit unit & integration tests
+    └── CourtBook.Tests/                  # 66 xUnit unit & integration tests
 ```
+
+---
+
+## 8. Đội ngũ phát triển (Contributors)
+- **tphuy227266-star** (`tphuy227266@gmail.com`)
+- **nhaq0505** (`anhquan050503@gmail.com`)
